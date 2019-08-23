@@ -1,6 +1,7 @@
 from django.shortcuts import render
+from django.db import connection
 
-from ..models import ListMacHistory
+from ..models import ListMacHistory, Switches
 
 
 def _format_list_rawquery(fields, table, order_by):
@@ -61,3 +62,38 @@ def surv_list(request):
         'mac',
     ))
     return render(request, 'surv_list.html', {"device": object})
+
+
+def report_view(request):
+    switches = Switches.objects.all().order_by('vendor', 'soft_version', 'mac')
+    switches_ports = {}
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT count(*), (speed *(oper-2)*-1) as speed, (CASE (duplex-(oper*2)) WHEN 0 THEN 'half' "
+                       "WHEN 1 THEN 'full' ELSE '0' END) as duplex, switches.name as name  FROM switches_ports inner "
+                       "join switches on (switch=switches.id) WHERE status='active'  GROUP BY 4,2,3 ORDER BY 4,2,3")
+        sum_ports = {
+            '0_0': 0,
+            '10_half': 0,
+            '10_full': 0,
+            '100_half': 0,
+            '100_full': 0,
+            '1000_full': 0,
+        }
+        total = 0
+        # count, speed, duplex, name
+        for i in cursor.fetchall():
+            if i[3] not in switches_ports:
+                switches_ports[i[3]] = {
+                    '0_0': '-',
+                    '10_half': '-',
+                    '10_full': '-',
+                    '100_half': '-',
+                    '100_full': '-',
+                    '1000_full': '-',
+                }
+            switches_ports[i[3]]['{}_{}'.format(i[1], i[2])] = i[0]
+            total += i[0]
+            sum_ports['{}_{}'.format(i[1], i[2])] += i[0]
+        switches_ports['Total'] = sum_ports
+    return render(request, 'report.html', {'switches': switches, 'switches_ports': switches_ports, 'total': total})
+
