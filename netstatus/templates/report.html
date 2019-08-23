@@ -1,0 +1,70 @@
+{% extends 'header_menu.html' %}
+{% load static %}
+{% block customcss %}
+    <link rel="stylesheet" href="{% static 'css/report.css' %}">
+{% endblock %}
+{% block content %}
+<h2>General reports</h2>
+<small>Can be copied to spreadsheets or saved anywhere else</small>
+<h3>Switch listing</h3>
+<table>
+<thead>
+    <th></th>
+    <th>Status</th>
+    <th>Name</th>
+    <th>MAC</th>
+    <th>IP</th>
+    <th>Vendor</th>
+    <th>Model</th>
+    <th>Software<br>version</th>
+    <th>Serial</th>
+</thead>
+<tbody>
+{% for p in switches %}
+<tr>
+    <td class=cont>{{ forloop.counter }}</td>
+    <td>{{ p.status }}</td>
+    <td>{{ p.name }}</td>
+    <td>{{ p.mac }}</td>
+    <td class=ip>{{ p.ip }}</td>
+    <td>{{ p.vendor }}</td>
+    <td>{{ p.model }}</td>
+    <td>{{ p.soft_version }}</td>
+    <td>{{ p.serial_number }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+<h3>Port status per switch:</h3>
+<small>
+    switches with combo ports are double counted because they are seem as different ports even you can't use both
+    together. This will happen with 28 ports switches, but there are 28 ports switches you can use all ports altogether.
+</small>
+<table id=per_switch cellspacing="10" cellpadding="10">
+<thead>
+  <tr>
+    <th>Switch</th>
+    <th>Offline </th>
+    <th> 10 Mbps <br> half </th>
+    <th> 10 Mbps <br> full </th>
+    <th> 100 Mbps <br> half </th>
+    <th> 100 Mbps <br> full </th>
+    <th> 1 Gbps  <br> full </th>
+  </tr>
+</thead>
+<tbody>
+{% for name, v in switches_ports.items %}
+  <tr>
+    <td>{{ name }}</td>
+    <td>{{ v.0_0 }}</td>
+    <td>{{ v.10_half }}</td>
+    <td>{{ v.10_full }}</td>
+    <td>{{ v.100_half }}</td>
+    <td>{{ v.100_full }}</td>
+    <td>{{ v.1000_full }}</td>
+  </tr>
+{% endfor %}
+</tbody>
+</table>
+<h4>Total ports: {{ total }}</h4>
+{% endblock %}
