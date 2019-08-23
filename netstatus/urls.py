@@ -17,7 +17,7 @@ from django.urls import path, include
 from rest_framework.urlpatterns import format_suffix_patterns
 
 from .views import switches_list, printers_list, voip_list, wifi_list, surv_list
-from .views import macip_api, probe_view, probe_service
+from .views import macip_api, probe_view, probe_service, report_view
 
 urlpatterns = [
     path('', switches_list),
@@ -26,6 +26,7 @@ urlpatterns = [
     path('wifi-list/', wifi_list),
     path('surv-list/', surv_list),
     path('search/', macip_api),
+    path('report/', report_view),
     path('probe/', probe_view),
     path('probe/<str:service>', probe_service),
     path('probe/<str:service>/<str:target>/<str:community>', probe_service),
