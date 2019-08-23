@@ -1,0 +1,15 @@
+{% extends 'base_rep.html' %}
+{% block report_header %}
+    <th>Branch</th>
+    <th>Name</th>
+    <th>Department</th>
+    <th>IP</th>
+    <th>MAC</th>
+{% endblock %}
+{% block report_fields %}
+    <td class="ramal">{{ p.branch }}</td>
+    <td>{{ p.name }}</td>
+    <td>{{ p.depto }}</td>
+    <td class=ip>{{ p.ip }}</td>
+    <td>{{ p.mac }}</td>
+{% endblock %}

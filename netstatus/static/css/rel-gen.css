@@ -1,0 +1,58 @@
+body {
+  background-color:white;
+}
+table {
+  font-size:10pt;
+  border-collapse: collapse;
+  font-family:Courier;
+}
+th {
+  background-color:lightgray;
+}
+td {
+  padding: 5px;
+  border-bottom: 1px solid lightgray;
+}
+.mac3com {
+  background-color:#eaf9e7;
+}
+
+.ramal {
+  background-color:yellow;
+}
+.vazio {
+  background-color:lavender !important;
+}
+.ip {
+  background-color:lightcyan;
+}
+.offline {
+  background-color:navajowhite;
+}
+.cont {
+  background-color:gray;
+  font-weight:bold;
+  border-bottom:1px solid lightgray;
+  color:white;
+}
+.tabela_relatorio {
+}
+.tabela_relatorio tr {
+}
+.tabela_relatorio th {
+  margin:5px;
+  padding:12px;
+}
+.tabela_relatorio td {
+  margin:12px;
+  padding:6px;
+  border-right: 1px solid lightgray;
+  border-bottom: 1px solid white;
+}
+.tabela_relatorio tr:nth-child(odd) {
+  background: #e3e9ed;
+}
+.tabela_relatorio tr:nth-child(even) {
+  background: #e4e5ed;
+}
+

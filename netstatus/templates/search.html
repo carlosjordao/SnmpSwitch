@@ -1,0 +1,63 @@
+{% extends 'header_menu.html' %}
+{% load static %}
+{% block customcss %}
+<link rel="stylesheet" type="text/css" href="{% static 'DataTables/datatables.min.css' %}"/>
+<script type="text/javascript" src="{% static 'DataTables/datatables.min.js' %}"></script>
+{% endblock %}
+{% block content %}
+<script type="text/javascript" language="javascript" >
+
+    function filterIP(ip) {
+        var c = $('#filter_ip').checked;
+        if( c && ip == '' ) return false;
+        return true;
+    }
+
+    /* Custom filtering function which will search data in column four between two values */
+    $(document).ready(function() {
+        var dataTable = $('#macip').DataTable( {
+            processing: true,
+            serverSide: true,
+            searchDelay: 1000,
+            ordering:   true,
+            paging:     false,
+            scrollY:    "500px",
+            ajax:{
+                url :"/search/", // json datasource
+                type: "post",  // method  , by default get
+                error: function(){  // error handling
+                    $(".macip-error").html("");
+                    $("#macip_processing").css("display","none");
+
+                },
+                data: function(d) {
+                    d.filter_ip = $('#filter_ip').prop('checked');
+                }
+            },
+            columns: [
+                { data: "mac" },
+                { data: "switch" },
+                { data: "port" },
+                { data: "vlan" },
+                { data: "ip", name: false },
+                { data: "data" }
+            ]
+        } );
+
+        $('#filter_ip').click(function() {
+            dataTable.draw();
+        });
+    } );
+</script>
+<p style='float:right; margin:0; border:0;'>
+<input type=checkbox id=filter_ip name=filter_ip value=false>with IP</p>
+<table id=macip class=display>
+  <thead>
+    <tr>
+      <th>mac</th><th>switch</th><th>port</th><th>vlan</th><th>ip</th><th>date</th>
+    </tr>
+  </thead>
+  <tbody>
+  </tbody>
+</table>
+{% endblock %}

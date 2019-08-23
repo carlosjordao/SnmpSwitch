@@ -1,0 +1,21 @@
+{% extends 'base_rep.html' %}
+{% block report_header %}
+    <th></th>
+    <th>MAC</th>
+    <th>DNS</th>
+    <th>Name</th>
+    <th>IP</th>
+    <th>Hardware Description</th>
+    <th>Serial</th>
+    <th>Vendor</th>
+{% endblock %}
+{% block report_fields %}
+    <td class=cont>{{ forloop.counter }}</td>
+    <td>{{ p.mac }}</td>
+    <td>{{ p.dns }}</td>
+    <td>{{ p.name }}</td>
+    <td class=ip>{{ p.ip }}</td>
+    <td>{{ p.hrdesc }}</td>
+    <td>{{ p.serial }}</td>
+    <td>{{ p.brand }}</td>
+{% endblock %}

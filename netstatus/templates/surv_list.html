@@ -1,0 +1,15 @@
+{% extends 'base_rep.html' %}
+{% block report_header %}
+    <th></th>
+    <th>MAC</th>
+    <th>Type</th>
+    <th>IP</th>
+    <th>Comments</th>
+{% endblock %}
+{% block report_fields %}
+    <td class=cont>{{ forloop.counter }}</td>
+    <td>{{ p.mac }}</td>
+    <td>{{ p.type }}</td>
+    <td>{{ p.ip }}</td>
+    <td>{{ p.comments }}</td>
+{% endblock %}

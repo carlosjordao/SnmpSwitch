@@ -1,0 +1,46 @@
+{% extends 'header_menu.html' %}
+{% load static %}
+{% block customcss %}
+    <link rel="stylesheet" href="{% static 'css/rel-gen.css' %}">
+{% endblock %}
+{% block content %}
+<table>
+<thead>
+  <tr>
+    {% block report_header %}
+    {% endblock %}
+    <th>Switch</th>
+    <th>Port</th>
+    <th><small>Last Time Seen</small></th>
+  </tr>
+</thead>
+<tbody>
+{% for p in device %}
+<tr>
+  {% ifchanged p.mac %}
+    {% block report_fields %}
+    {% endblock %}
+    {% if not p.sname %}
+    <td colspan=3 class=offline><small>offline
+      <br>
+        {% if not p.last_sname %}
+            <i>Presence not recorded</i>
+        {% else %}
+            <b>Record History:</b>
+            <i>{{ p.last_sname }}, port: {{ p.last_port }};<br>
+                Last seen: {{ p.last_seen }}
+            </i>
+        {% endif %}
+      </small>
+    </td>
+    {% else %}
+    <td>{{ p.sname }}</td>
+    <td>{{ p.port }}</td>
+    <td><small>{{ p.data }}</small></td>
+    {% endif %}
+  {% endifchanged %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% load static %}
+<html>
+<head>
+    <link rel="shortcut icon" href='{% static "favicon.ico" %}' />
+    <link rel="stylesheet" href="{% static 'css/menu.css' %}">
+    {% block customcss %}
+    {% endblock %}
+</head>
+<body>
+<div id=main>
+<div id=nav>
+ <ul>
+  <li><a href='/net'>Network Status</a></li>
+  <li><a href='/report'>Reports</a></li>
+  <li><a href='/printers-list'>Printers</a></li>
+  <li><a href='/voip-list'>Voips</a></li>
+  <li><a href='/surv-list'>Surveillance</a></li>
+  <li><a href='/wifi-list'>Wifi</a></li>
+  <li><a href='/search'>Search for IP/MAC</a></li>
+  <li><a href='/probe'>Probe the Net</a></li>
+ </ul>
+</div>
+<div id="content">
+{% block content %}
+{% endblock %}
+</div>
+</div>
+</body>
+</html>

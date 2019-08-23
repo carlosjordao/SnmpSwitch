@@ -1,0 +1,41 @@
+{% extends 'header_menu.html' %}
+{% load static %}
+{% block customcss %}
+    <link rel="stylesheet" href="{% static 'css/network.css' %}">
+{% endblock %}
+{% block content %}
+<table width="100%">
+  {% for switch in switches %}
+  <tr>
+    <td style='text-align:justify;' id='{{switch.name}}'>
+        <b>{{switch.name}}</b><br>
+        <small>
+            {{switch.alias}}<br>
+            {{switch.mac}}<br>
+            {{switch.ip}}<br>
+            {{switch.serial_number}}
+        </small>
+    </td>{% comment %}
+      24 through 28 ports should be ok in one line.
+      More than that usually means bigger switches (48+ ports or multiple chassis ones)
+    {% endcomment %}
+    <td class="port_grid" style="{% if switch.ports_rendered|length > 28 %}grid-template-columns: repeat(24, 1fr);{% endif %}">
+        {% for main_ in switch.ports_rendered %}
+        {% spaceless %}
+        <div class="switchport{% for c in main_ %}{% if c.maincss %} {{ c.maincss }}{% endif %}{% endfor %}"
+             title="{% for c in main_ %}{% if c and c.maintitle %}{{c.maintitle}}
+{% endif %}{% endfor %}">
+            {% for c in main_ %}
+                {% if c is not None and c.content %}
+                    <span class="{{c.class}}" title="{{c.title|safe}}">{{c.content|safe}}</span>
+                    {% if not c.inline %}<br>{% endif %}
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endspaceless %}
+        {% endfor %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

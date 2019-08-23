@@ -1,0 +1,158 @@
+* {
+  color: white;
+  font-size:10pt;
+}
+body {
+  background-color:black;
+}
+small {
+  color: lightgray;
+  font-size:8pt;
+}
+td {
+  vertical-align:text-top;
+  /*padding-bottom: 5px;*/
+  border-bottom: 1px dashed #333;
+  min-width:28pt;
+}
+.port {
+  position:absolute;
+  font-size:18pt;
+  color:#333;
+  z-index:-1;
+}
+.port_small {
+  position:absolute;
+  font-size:16pt;
+  color:#333;
+  z-index:-1;
+}
+
+.problema {
+  color:salmon;
+}
+.desabilitado {
+  text-decoration:strike;
+  color:darkgray;
+}
+.halfduplex {
+  background-color:orange;
+}
+.speed10M {
+  color:red;
+}
+.speed100M {
+  color:green;
+}
+.speed1G {
+  color:lightgreen;
+}
+.sem_mac {
+  border-bottom: 1px dashed salmon;
+}
+.poe_on {
+  color: yellow;
+}
+.poe_off {
+  color: darkgoldenrod;
+}
+.ausente {
+  color: black;
+}
+.voip {
+  color: violet;
+}
+.stp_block { 
+  border: 1px dotted red; 
+  background-color: darkslategray;
+}
+.stp_root { 
+  border: 1px dotted lightgreen; 
+  border-top: 3px solid orange;
+}
+.stp_warning { 
+  border: 1px dotted yellow; 
+}
+.stp_disable { 
+  border: 2px dotted white; 
+  background-color: navy;
+}
+.notraffic { 
+  background-color: #1C0F2C;
+  width:50px;
+  height:80px;
+  /*color:#50297d;*/
+}
+
+.tag {
+  color: lightgray;
+  font-size:7pt;
+}
+.tag_access {
+/*  text-decoration: underline;*/
+  color:white;
+  font-weight: bold;
+}
+.pvid_20  { color: aquamarine; }
+.pvid_55  { color: MediumTurquoise; }
+.pvid_997 { color: magenta; }
+.macs_alto {
+  color: cornsilk;
+  font-weight: bold;
+}
+.vizinho, .vizinho a {
+  color: cyan;
+  font-weight:bold;
+  text-decoration:none;
+}
+.vizinho_td {
+  /*border-top: 3px solid #F9BC4A;*/
+  /*border-top: 3px solid orange;*/
+  border: 1px dotted lightgreen; 
+}
+.printer, .printer a {
+  color: pink;
+  text-decoration:none;
+}
+.wfu_problema {
+  filter: invert(100%);
+  -webkit-filter: invert(100%);
+}
+
+.tooltip {
+    position: relative;
+    display: inline-block;
+}
+.tooltip .tooltiptext {
+    width: 120px;
+    top: 100%;
+    left: 50%;
+    margin-left: -60px; /* Use half of the width (120/2 = 60), to center the tooltip */
+
+    visibility: hidden;
+    background-color: gold;
+    color: black;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px 0;
+
+    position: absolute;
+    z-index: 1;
+}
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+}
+
+.port_grid {
+  display: grid;
+  grid-template-columns: repeat(28, 1fr);
+}
+.switchport {
+  display:table-cell;
+  position:relative;
+  vertical-align:text-top;
+  min-width:14mm;
+  height:90px;
+  margin-right:2px;
+  margin-top:2px;
+}

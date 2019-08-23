@@ -1,0 +1,97 @@
+{% extends 'header_menu.html' %}
+{% load static %}
+{% block customcss %}
+   <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+   <style>
+.response {
+  position: relative;
+  overflow: hidden;
+  height: auto;
+  min-height: 50px;
+  padding-bottom: 20px;
+}
+embed {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 300px;
+}
+pre {
+  white-space: pre-wrap;
+  overflow:auto;
+}
+   </style>
+{% endblock %}
+{% block content %}
+<script>
+    function call_response(sid, rootpath) {
+      var new_source = '';
+      if (sid == 'updatedb') {
+        new_source = rootpath;
+      } else {
+        source = document.getElementById(sid);
+        if (source.value == '') {
+            alert('IP must not be null');
+            return;
+        }
+        source_comm = document.getElementById(sid + '_comm');
+        new_source = rootpath + '/' + source.value + '/' + source_comm.value;
+      }
+      if (new_source) {
+        e = document.getElementById('embed_response');
+        var clone = e.cloneNode(true);
+        clone.setAttribute('src', new_source);
+        e.parentNode.replaceChild(clone,e);
+      }
+    }
+</script>
+<div class="w3-row-padding">
+    <div class="w3-third w3-margin-bottom">
+        <div class="w3-border w3-panel w3-card-2">
+        <p class="">Probe one network printer:</p>
+            <p>
+                <input class='w3-input' type="text" id="printer" maxlength="40" style="width:90%"/>
+                <label>IP</label>
+            </p>
+            <p>
+                <input class="w3-input" type="text" id="printer_comm" maxlength="20" style="width:90%" value="public"/>
+                <label>Community</label>
+            </p>
+            <p>
+                <button class='w3-button w3-green'  onclick="javascript: call_response('printer', '/probe/printer');">Probe it!</button>
+            </p>
+        </div>
+    </div>
+    <div class="w3-third w3-margin-bottom">
+        <div class="w3-border w3-panel w3-card-2">
+        <p class="">Probe one switch:</p>
+            <p>
+                <input class='w3-input' type="text" id="switch" maxlength="40" style="width:90%"/>
+                <label>IP</label>
+            </p>
+            <p>
+                <input class="w3-input" type="text" id="switch_comm" maxlength="20" style="width:90%" value="public"/>
+                <label>Community</label>
+            </p>
+            <p>
+                <button class='w3-button w3-green' onclick="javascript: call_response('switch', '/probe/switch');">Probe it!</button>
+                <button class='w3-button w3-green' onclick="javascript: call_response('switch', '/probe/neighbors');">Neighbors</button>
+            </p>
+        </div>
+    </div>
+
+    <div class="w3-third w3-margin-bottom">
+        <div class="w3-border w3-panel w3-card-2">
+        <p>Update all switches in database. This should take a couple of minutes and you should wait it to finish.</p>
+        <p>
+            <button class='w3-button w3-green' onclick="javascript: call_response('updatedb', '/probe/updatedb');">Probe them!</button>
+        </p>
+        </div>
+    </div>
+</div>
+
+<div class="w3-panel w3-pale-green w3-round-xxlarge response">
+    <p>Response</p>
+    <embed id="embed_response"/>
+</div>
+{% endblock %}
