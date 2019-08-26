@@ -193,7 +193,9 @@ def _switch_status(rows, dryrun):
 
         SwitchesNeighbors.objects.filter(mac1=switch.mac).delete()
         for lport in o.uplink:
-            omac, oport = o.lldp[lport]
+            # omac, oport = o.lldp[lport]
+            omac = o.lldp[lport]['rmac']
+            oport = o.lldp[lport]['rport']
             sn = SwitchesNeighbors(mac1=switch.mac, port1=lport, mac2=omac, port2=oport)
             if not dryrun:
                 sn.save()

@@ -10,15 +10,15 @@ def probe_switch_neighbors(host, community='public'):
     """
     try:
         switch = SwitchFactory().factory(host, community)
-        saida = switch.get_lldp_neighbor(None)
+        neighbors = switch.get_lldp_neighbor(None)
     except Exception as e:
         yield "error connecting to the switch"
         print(repr(e))
         return
 
     yield '# LOCAL: port number + port description  >>  REMOTE: switch name + port + port description'
-    for k, v in saida.items():
-        yield "{:>4}, {:>3}, {:>30}, {:>25}, {}".format(k, v['locportdesc'], v['remsysname'], v['rporta'], v['remportdesc'])
+    for k, v in neighbors.items():
+        yield "{:>4}, {:>3}, {:>30}, {:>25}, {}".format(k, v['locportdesc'], v['remsysname'], v['rport'], v['remportdesc'])
 
     return
 

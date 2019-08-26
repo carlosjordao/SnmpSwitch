@@ -11,7 +11,7 @@ class SwitchHuawei(Switch):
     def is_compatible(cls, descr):
         """
         Checks if the switch is Huawei.
-        Expected string:
+        Expected string template from Huawei:
              S5720-28X-PWR-SI-AC
              Huawei Versatile Routing Platform Software
              VRP (R) software,Version 5.170 (S5720 V200R010C00SPC600)
@@ -29,15 +29,17 @@ class SwitchHuawei(Switch):
         self._fab_var = '1'
         self._oids_vlans = {
             # Using hwL2VlanDescr because it has a shorter list of VLANs, with the only one created in the switch
-            'vlans': '.1.3.6.1.4.1.2011.5.25.42.3.1.1.1.1.2'
-            , 'tagged': '.1.3.6.1.2.1.17.7.1.4.3.1.2'
-            , 'untagged': '.1.3.6.1.2.1.17.7.1.4.3.1.4'
+            'vlans': '.1.3.6.1.4.1.2011.5.25.42.3.1.1.1.1.2',
+            'tagged': '.1.3.6.1.2.1.17.7.1.4.3.1.2',
+            'untagged': '.1.3.6.1.2.1.17.7.1.4.3.1.4',
         }
         self._oids_poe = {
-            'poeadmin': '1.3.6.1.4.1.2011.5.25.195.3.1.'
-            , 'poempower': '1.3.6.1.4.1.2011.5.25.195.3.1.10.'
-            , 'poesuffix': ''
+            'poeadmin': '1.3.6.1.4.1.2011.5.25.195.3.1.',
+            'poempower': '1.3.6.1.4.1.2011.5.25.195.3.1.10.',
+            'poesuffix': '',
         }
+        # hwL2IfPortType
+        self._ifVLANType = '.1.3.6.1.4.1.2011.5.25.42.1.1.1.3.1.3'
 
     def get_fab(self):
         super().get_fab()
@@ -66,16 +68,6 @@ class SwitchHuaweiS5700(SwitchHuawei):
     """
     @classmethod
     def is_compatible(cls, descr):
-        """
-        Checks if the switch is Huawei S5700 model.
-        Expected string:
-             S5720-28X-PWR-SI-AC
-             Huawei Versatile Routing Platform Software
-             VRP (R) software,Version 5.170 (S5720 V200R010C00SPC600)
-             Copyright (C) 2007 Huawei Technologies Co., Ltd.
-        :param descr:
-        :return:
-        """
         parte1, parte2 = descr.split('\n')[0:2]
         if parte1[0:3] == 'S57':
             return True

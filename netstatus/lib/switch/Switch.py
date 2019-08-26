@@ -97,7 +97,7 @@ class Switch:
         self.vlans = []
         self.vtagged = {}
         self.vuntagged = {}
-        self.__lldp = {}
+        # self.__lldp = {}
         self.intvlan = {}
         self.macs = ()
         self.macs_filtered = ()
@@ -117,10 +117,15 @@ class Switch:
             self.map_baseport()
         logging.debug(('-- _map_baseport_ifindex: ', self._map_baseport_ifindex))
 
-    # Necessário criar uma segunda sessão se a comunidade privada for diferente da pública
-    # Pode ser que chamemos essa função diversas vezes, de vários lugares diferentes.
-    # Então vamos evitar recriar a sessão toda vez. 'force' força recriar.
     def set_start(self, comunidadew='private', version=2, force=False):
+        """
+        Create a second SNMP session for writing into the switch.
+        Only uses the same session connection if both community are equal
+        :param comunidadew:
+        :param version: usually 2. Only change this if really needs to.
+        :param force:
+        :return:
+        """
         if self.sessaow is not None and not force:
             return
         if self.comunidade == comunidadew:
@@ -138,7 +143,7 @@ class Switch:
         Get the relation baseport <-> ifIndex. Used to access some vlans, pvid and other data index as baseport instead
         ifIndex. Most smalls switches has a relation 1:1 (baseport = 1, ifIndex = 1). Go through the
         dot1dBasePortIfIndex OID
-            #
+
         :return: nothing. Sets the object variable _map_baseport_ifindex
         """
         oid_portifindex = '.1.3.6.1.2.1.17.1.4.1.2'
@@ -175,12 +180,11 @@ class Switch:
         logging.debug('-- self.vtagged: ' + str(self.vtagged))
         logging.debug('-- self.vuntagged: ' + str(self.vuntagged))
 
-        self.get_portas()
-        logging.debug('-- portas: ' + str(self.portas))
+        self.get_ports()
+        logging.debug('-- ports: ' + str(self.portas))
 
-        self.lldp = {}
         self.get_lldp_neighbor()
-        logging.debug(('-- após vizinhos: ', self.lldp))
+        logging.debug(('-- after get_lldP_neighbor(): ', self.lldp))
         logging.debug(('   +---> uplinks: ', self.uplink))
 
         self.get_mac_list()
@@ -248,8 +252,8 @@ class Switch:
                 ('3', '6', '10')] \
                + [self._oids_poe['poempower'] + '.' + self._oids_poe['poesuffix'] + '.' + porta]
 
-    # padrão para 3Com e HP. Nem todos switches suportam a árvore dot1qVlanStaticUntaggedPorts.
-    # INTEGER {vLANTrunk(1), access(2), hybrid(3), fabric(4)}
+    # Default for 3Com and HP. Not all switches supports dot1qVlanStaticUntaggedPorts
+    # Data: INTEGER {vLANTrunk(1), access(2), hybrid(3), fabric(4)}
     _ifVLANType = '.1.3.6.1.4.1.43.45.1.2.23.1.1.1.1.5'
 
     def _oid_vtype(self, porta):
@@ -321,24 +325,21 @@ class Switch:
         return True if iftype in (117, 6) else False
 
     # preferência por filtrar apenas portas ethernet (ignorar int. vlans e outras interfaces)
-    def get_portas(self):
+    def get_ports(self):
         """
         Get the switches ports, filtering to get only ether type - sometimes interface vlan appear here, it depends
         on the switch.
         :return: set a dictionary indexed by port number
         """
-        # fazer diferente do shell script: pegar os índices das portas e verificar se é ethernet
-        # para então pegar todas as outras variáveis. É mais robusto assim, especialmente se quisermos
-        # estender o uso para o 7900 ou outros switches.
-        # navegando pelo iftype para obter o tipo e a port ao mesmo tempo. Com ela poderemos separar
-        # Ethernet de Interface Vlan.
+        # Checking with ifType if the port is ethernet type (may be interface vlan or anything else).
+        # avoids calling get_port_ether() for non ethernet type.
         oid_iftype = '.1.3.6.1.2.1.2.2.1.3'
         for (_oid, _type, _value) in self.sessao.walk(oid_iftype):
             porta = int(_oid[(len(oid_iftype) + 1):])
             iftype = int(_value)
 
             if self._is_port_ether(iftype):  # and port in self._map_baseport_ifindex:
-                self.portas[porta] = self.get_porta_ether(porta)
+                self.portas[porta] = self.get_port_ether(porta)
 
     _oids_intvlan = (
         '.1.3.6.1.4.1.43.45.1.2.23.1.2.1.2.1.3',  # hwdot1qVlanIpAddress - "IP address of interface."
@@ -360,7 +361,7 @@ class Switch:
             self.intvlan[int(vlan)] = tuple(valores)
 
     # PARAM: espera-se que port seja do tipo 'int'
-    def get_porta_ether(self, porta):
+    def get_port_ether(self, porta):
         # some functions need this as integer, so we will do it only once.
         i = str(porta)
 
@@ -427,7 +428,7 @@ class Switch:
             , 'pvid': stp_pvid
             , 'porta_tagged': vtag
             , 'porta_untagged': vuntag
-            # data: fica por conta de outra classe gerar
+            # data: will be defined somewhere else.
             , 'nome': ifdesc
             , 'alias': ifalias
         }
@@ -525,13 +526,13 @@ class Switch:
     # lldpRemChassisId
     _oids_lldp_mac = '.1.0.8802.1.1.2.1.4.1.1.5'
     _oids_lldp = {
-        'chassissubtype': '.1.0.8802.1.1.2.1.4.1.1.4',
-        'portsubtype': '.1.0.8802.1.1.2.1.4.1.1.6',
-        'rporta': '.1.0.8802.1.1.2.1.4.1.1.7',
-        'remportdesc': '.1.0.8802.1.1.2.1.4.1.1.8',
-        'remsysname': '.1.0.8802.1.1.2.1.4.1.1.9',
-        'capsupported': '.1.0.8802.1.1.2.1.4.1.1.11',
-        'capenable': '.1.0.8802.1.1.2.1.4.1.1.12',
+        'chassissubtype':   '.1.0.8802.1.1.2.1.4.1.1.4',
+        'portsubtype':      '.1.0.8802.1.1.2.1.4.1.1.6',
+        'rport':            '.1.0.8802.1.1.2.1.4.1.1.7',
+        'remportdesc':      '.1.0.8802.1.1.2.1.4.1.1.8',
+        'remsysname':       '.1.0.8802.1.1.2.1.4.1.1.9',
+        'capsupported':     '.1.0.8802.1.1.2.1.4.1.1.11',
+        'capenable':        '.1.0.8802.1.1.2.1.4.1.1.12',
     }
     _oids_lldp_local = {
         'locportdesc': '.1.0.8802.1.1.2.1.3.7.1.4',
@@ -541,10 +542,9 @@ class Switch:
         """
         Get neighbors through LLDP.
         :param is_uplink: optional function to filter LLDP neighbors
-        :return: [{lporta: (rmac, rporta)},]
+        :return: [{lport: {rmac, rporta, locportdesc, remsysname, remportdesc}},]
         """
-
-        self.__lldp = {}
+        # self.__lldp = {}    # full set
         self.lldp = {}
         if is_uplink is not None:
             is_uplink = getattr(self, is_uplink)
@@ -553,30 +553,24 @@ class Switch:
         vizinhos = self.sessao.walk(self._oids_lldp_mac)
         for (oid, tipo, _rmac) in vizinhos:
             oid = oid.replace(self._oids_lldp_mac, '').split('.')
-
-            # alguns dispositivos registram mais de uma vez a mesma port na tabela
-            # (o detalhe é a chave temporal que muda). Fazer um filtro para isso.
-            lporta = int(oid[2])
-            logging.debug("[{} / {}] LLDP: port {}.".format(self.alias, self.host, lporta))
-            if lporta in self.lldp:
+            # Some devices register the port multiple times, only differs by a temporal key in the OID.
+            # We need to filter that.
+            lport = int(oid[2])
+            logging.debug("[{} / {}] LLDP: port {}.".format(self.alias, self.host, lport))
+            if lport in self.lldp:
                 logging.debug(
-                    "--> NOTE: [{} / {}] LLDP: port {} já consta no dicionário.".format(self.alias, self.host, lporta))
+                    "--> NOTE: [{} / {}] LLDP: port {} already registered.".format(self.alias, self.host, lport))
                 continue
-
             snmpId = oid[1]
-            lidx = '.'.join(oid[2:4])
-            ip = oid[-4:]
-
-            # pega o restante dos dados necessários para identificar um switch na outra ponta.
+            # other data needed to identify the relation with neighbors
             res = {}
-            # dados da port local
             for k, oid in self._oids_lldp_local.items():
-                logging.debug("{} = {}".format(k, self.sessao.get('.'.join((oid, str(lporta))))[0][2]))
-                res[k] = snmp_values(self.sessao.get('.'.join((oid, str(lporta)))))[0]
+                logging.debug("{} = {}".format(k, self.sessao.get('.'.join((oid, str(lport))))[0][2]))
+                res[k] = snmp_values(self.sessao.get('.'.join((oid, str(lport)))))[0]
 
             for k, oid in self._oids_lldp.items():
-                # fazendo um ajuste para funcionar com D-LINK, devido a um erro deles no snmpget na árvore LLDP
-                res[k] = snmp_values(self.sessao.getnext('.'.join((oid, snmpId, str(lporta)))))[0]
+                # D-LINK gives some errors, so we need to do some adjusts
+                res[k] = snmp_values(self.sessao.getnext('.'.join((oid, snmpId, str(lport)))))[0]
 
             """
             lldpRemPortIdSubtype
@@ -598,12 +592,12 @@ class Switch:
 
             elif res['chassissubtype'] == '5':
                 logging.debug('--            +++----->  _rmac = "{}"'.format(_rmac))
-                # VOIPs Yealink deixam o campo obtido em _oids_lldp_mac vazio. 
-                # Marcam como networkAddress em chassissubtype, mas não informam nada neste campo. 
-                # Contudo: rporta e portsubtype contém os dados de MAC da port remota.
+                # VOIPs Yealink let the field _oids_lldp_mac empty.
+                # They set chassissubtype as networkAddress, but don't any other type of information.
+                # However: rport e portsubtype has the MAC data of the remote port.
                 if _rmac == '""':
-                    logging.debug("--> NOTE: [{} / {}] LLDP: lporta {}: rmac é nulo.".
-                                  format(self.alias, self.host, lporta))
+                    logging.debug("--> NOTE: [{} / {}] LLDP: lport {}: rmac is null.".
+                                  format(self.alias, self.host, lport))
                     continue
                 rmac = '{:d}.{:d}.{:d}.{:d}'.format(*[int(v, 16) for v in _rmac.strip(' "').split(' ')[-4:]])
 
@@ -637,30 +631,30 @@ class Switch:
             """
             logging.debug('portsubtype = {}'.format(res['portsubtype']))
             if res['portsubtype'] == '5':  # HP / 3Com
-                tmp = res['rporta'].split('/')
+                tmp = res['rport'].split('/')
                 if tmp[0][-1] == '1':
                     rporta = tmp[2]
                 else:
-                    # switches com vários layers
+                    # multi layer switch
                     rporta = ''.join((tmp[0][-1], tmp[2].zfill(2)))
             elif res['portsubtype'] == '3':  # DLINK / VOIPs
-                rporta = str(int(res['rporta'].rstrip().split(' ')[-1], 16) + 1)
+                rporta = str(int(res['rport'].rstrip().split(' ')[-1], 16) + 1)
             else:
-                rporta = res['rporta']
+                rporta = res['rport']
 
-            self.lldp[lporta] = (rmac, rporta)
-            res['rporta'] = rporta
+            # self.lldp[lport] = (rmac, rporta)
+            res['rport'] = rporta
             res['rmac'] = rmac
-            self.__lldp[lporta] = res
+            self.lldp[lport] = res
+            # self.__lldp[lport] = res
 
             try:
-                if is_uplink and is_uplink(str(lporta), res):
-                    self.uplink += (lporta,)
+                if is_uplink and is_uplink(str(lport), res):
+                    self.uplink += (lport,)
             except Exception as e:
-                logging.debug('-- #### Exceção Uplink #### ', e)
-                self.uplink += (lporta,)
-
-        return self.__lldp
+                logging.debug('-- #### Uplink Exception #### ', e)
+                self.uplink += (lport,)
+        return self.lldp
 
     def portlist(self, valor, port):
         """
@@ -711,7 +705,7 @@ class Switch:
                 # print("-- mac before ({}): {}".format(_type, _value))
                 mac = ':'.join(_value.strip('" ').lower().split(' '))
                 # print("-- mac after ({}): {}".format(_type, _value))
-            # reagrupa os 4 últimos dígitos do OID, que são o IP. O 5º é a port, e não interessa agora
+            # regroup the last 4 digits from OID, which is the IP. The 5º is the port, no interest right now.
             ip = '.'.join(_oid.split('.')[-4::])
             logging.debug("-- ip == mac :: {} == {}".format(ip, mac))
             self.ip_mac[mac] = ip

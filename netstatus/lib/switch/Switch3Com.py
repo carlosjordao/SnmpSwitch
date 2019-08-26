@@ -27,7 +27,7 @@ class Switch3Com4500G(Switch3Com):
         self._portas_tipo = {}
 
     # função extra para carregar informações das portas específicas para cada tipo de switch
-    # e que não deveriam interferir nas coisas de get_portas(), nem suas variáveis correlatas
+    # e que não deveriam interferir nas coisas de get_ports(), nem suas variáveis correlatas
     def _get_portas_tipo(self):
         macs = self.sessao.walk(self._ifVLANType)
         for (oid, _type, value) in macs:
@@ -42,18 +42,18 @@ class Switch3Com4500G(Switch3Com):
     # Problema: 
     #   Campos de leitura e escrita estão separados por modalidade trunk/access/híbrido. 
     #   Vai ser bem complexo fazer set com esse aqui.
-    def set_vlan_tag(self, porta, vlan):
-        if type(porta) is not int:
-            porta = int(porta)
+    def set_vlan_tag(self, port, vlan):
+        if type(port) is not int:
+            port = int(port)
         if type(vlan) is not str:
             vlan = str(vlan)
         if self._portas_tipo == {}:
             self._get_portas_tipo()
-        # se port access, retorna como erro. Aqui basta setar o pvid.
-        if self._portas_tipo[porta] == 2:
+        # if access port, returns error because setting pvid is enough
+        if self._portas_tipo[port] == 2:
             return 2
-        # caso eventualmente se encontre uma port tipo fabric.
-        if self._portas_tipo[porta] == 4:
+        # case there is fabric port somewhere...
+        if self._portas_tipo[port] == 4:
             return 4
 
         return 0
@@ -64,20 +64,14 @@ class Switch3Com4500G(Switch3Com):
 class Switch3Com7900(Switch3Com):
     @classmethod
     def is_compatible(cls, descr):
-        s  = descr.split(' ')
+        s = descr.split(' ')
         if len(s) > 1:
-            parte1, parte2  = s[0:2]
+            parte1, parte2 = s[0:2]
             if parte2[0:4] == 'S790':
                 return True
         return False
 
-    # esse tem vários boards e um mapeamento diferente de baseport para ifIndex
-    # consequentemente, afeta o mapa de VLANs
     def __init__(self, host, community='public', version=2):
         super().__init__(host, community, version)
-        #self.map_baseport()
-
-    #def _map_bport_ifidx(self, porta):
-    #    self._map_baseport_ifindex[porta]
 
 
