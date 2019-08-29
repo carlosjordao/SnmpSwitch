@@ -22,12 +22,13 @@ class SwitchHH3C(Switch):
     def __init__(self, host, community='public', version=2):
         super().__init__(host, community, version)
         self._oids_vlans = {
-            'vlans': '.1.3.6.1.4.1.25506.8.35.2.1.1.1.1',
-            'tagged': '.1.3.6.1.4.1.25506.8.35.2.1.1.1.17',
+            # 'vlans':    '.1.3.6.1.4.1.25506.8.35.2.1.1.1.1',       # hh3cdot1qVlanIndex
+            'vlans': '.1.3.6.1.2.1.17.7.1.4.2.1.3',                 # IETF  dot1qVlanFdbId
+            'tagged':   '.1.3.6.1.4.1.25506.8.35.2.1.1.1.17',
             'untagged': '.1.3.6.1.4.1.25506.8.35.2.1.1.1.18',
         }
         self._oids_poe = {
-            'poeadmin': '.1.3.6.1.2.1.105.1.1.1.',
+            'poeadmin':  '.1.3.6.1.2.1.105.1.1.1.',
             'poempower': '.1.3.6.1.4.1.25506.2.14.1.1.3',
             'poesuffix': '4',
         }
@@ -60,9 +61,9 @@ class SwitchHH3C_J9850A(SwitchHH3C):
         self._oids_poe['poesuffix'] = '1'
         self._fab_var = '1'
         self._oids_vlans = {
-            'vlans': '.1.3.6.1.2.1.17.7.1.4.2.1.3.0'
-            , 'tagged': '.1.3.6.1.2.1.17.7.1.4.3.1.2'
-            , 'untagged': '.1.3.6.1.2.1.17.7.1.4.3.1.4'
+            'vlans':    '.1.3.6.1.2.1.17.7.1.4.2.1.3',    # IETF dot1qVlanCurrentEntry
+            'tagged':   '.1.3.6.1.2.1.17.7.1.4.3.1.2',
+            'untagged': '.1.3.6.1.2.1.17.7.1.4.3.1.4',
         }
 
     # gambiarra até resolver o problema da descoberta correta do uplink

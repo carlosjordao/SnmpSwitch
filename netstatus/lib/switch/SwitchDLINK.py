@@ -55,9 +55,6 @@ class SwitchDLINK(Switch):
         return ['{}.{}'.format(self._oids_poe['poeadmin'], porta)] + \
                ['{}.{}.{}'.format(self._oids_poe['poempower'], v, porta) for v in ('7', '2', '3')]
 
-    def _remap(self, var_dict, value):
-        return var_dict[value] if value in var_dict else value
-
     poe_admin_mapping = {'1': '-1', '2': '1', '3': '2'}
 
     def _snmp_ports_poe(self, port):
@@ -66,8 +63,10 @@ class SwitchDLINK(Switch):
         :param port:
         :return: the POE values changed.
         """
+        def _remap(var_dict, value):
+            return var_dict[value] if value in var_dict else value
         ret = super()._snmp_ports_poe(port)
-        tmp = self._remap(self.poe_admin_mapping, ret[0][netsnmp.VALUE])
+        tmp = _remap(self.poe_admin_mapping, ret[0][netsnmp.VALUE])
         ret[0] = (ret[0][0], ret[0][1], tmp)
         return ret
 

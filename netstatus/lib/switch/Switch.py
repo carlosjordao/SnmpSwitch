@@ -7,9 +7,11 @@ from .switchlib import *
 
 """
     Switch is the main class used to get all main attributes of a switch: vlan, ports states, serial number, etc.
-    Softly based on 3Com 4500G series, other types of switches must extend this class and overwrite the needed features.
-    Most vendors don't implement ISO version of interesting MIB tree, like POE, VLAN, interface vlan. We need to 
-    go deep and guess how it works for each model and vendor. 
+    As softly based on 3Com 4500G / Comware series, other types of switches must extend this class and overwrite 
+    the needed OIDs. 
+    Most vendors don't implement IETF version of interesting parts of MIB tree, like POE, VLAN, interface vlan. 
+    Even some models don't implement all proprietary tree from a manufacturer.
+    Therefore, we need to go deep and guess how it works for each model and vendor. 
     This class is not that big, but everything with OIDs are pretty much painful, specially when you need to support
     several vendors and models. Most data has different types of representation and need to be converted to a common
     standard.
@@ -26,8 +28,7 @@ from .switchlib import *
             'vlans':    '.1.3.6.1.4.1.43.45.1.2.23.1.2.1.1.1.1',
             'tagged':   '.1.3.6.1.4.1.43.45.1.2.23.1.2.1.1.1.17',
             'untagged': '.1.3.6.1.4.1.43.45.1.2.23.1.2.1.1.1.18',
-        # hwifVLANType
-        _ifVLANType
+        _ifVLANType (trunk, hybrid, access) - not all implement this variant, as it doesn't appear in the IETF version.
             .1.3.6.1.4.1.43.45.1.2.23.1.1.1.1.5
         _oids_ifexists_intvlan
             .1.3.6.1.4.1.43.45.1.2.23.1.2.1.1.1.7'  # 1/2 = true/false for each vlan
@@ -46,28 +47,25 @@ class Switch:
     # todo: refactor this
     # basic information from a switch which are usually available without specific MIB tree
     _oids_geral = {
-        'nome': '.1.3.6.1.2.1.1.5.0',
-        'descr': '.1.3.6.1.2.1.1.1.0',
-        'uptime': '.1.3.6.1.2.1.1.3.0',
-        'mac': '.1.3.6.1.2.1.17.1.1.0',
-        'stp': '.1.3.6.1.2.1.17.2.7.0',
+        'name':     '.1.3.6.1.2.1.1.5.0',
+        'descr':    '.1.3.6.1.2.1.1.1.0',
+        'uptime':   '.1.3.6.1.2.1.1.3.0',
+        'mac':      '.1.3.6.1.2.1.17.1.1.0',
+        'stp':      '.1.3.6.1.2.1.17.2.7.0',
     }
-    """
-     específico de  cada  fabricante. Tem algumas variações, cujo  índice 
-     varia  para cada modelo, armazenada em _fab_var. É possível criar um
-     mecanismo  para  descobrir esse  índice também. No  momento ele está 
-     codificado em cada subclasse, que representa um modelo do switch.
-    """
-    _oids_fab = (
-        '.1.3.6.1.2.1.47.1.1.1.1.7.',  # físico
-        '.1.3.6.1.2.1.47.1.1.1.1.10.',  # versão software
-        '.1.3.6.1.2.1.47.1.1.1.1.11.',  # serial
-        '.1.3.6.1.2.1.47.1.1.1.1.12.',  # fabricante
-        '.1.3.6.1.2.1.47.1.1.1.1.13.',  # modelo
-    )
+    # _fab_var is added to the end of _oids_fab. Sometimes, we don't need to change all the OIDs,
+    # just the last part where this switch model stores some of its data.
+    _fab_var = '2'
+    _oids_fab = {
+        'physical':     '.1.3.6.1.2.1.47.1.1.1.1.7.',   # entPhysicalName
+        'soft_version': '.1.3.6.1.2.1.47.1.1.1.1.10.',  # software version
+        'serial':       '.1.3.6.1.2.1.47.1.1.1.1.11.',  # serial number
+        'vendor':       '.1.3.6.1.2.1.47.1.1.1.1.12.',  # manufacturer / vendor #  entPhysicalMfgName
+        'model':        '.1.3.6.1.2.1.47.1.1.1.1.13.',  # model
+    }
     _oids_vlans = {
-        'vlans': '.1.3.6.1.4.1.43.45.1.2.23.1.2.1.1.1.1',
-        'tagged': '.1.3.6.1.4.1.43.45.1.2.23.1.2.1.1.1.17',
+        'vlans':    '.1.3.6.1.4.1.43.45.1.2.23.1.2.1.1.1.1',
+        'tagged':   '.1.3.6.1.4.1.43.45.1.2.23.1.2.1.1.1.17',
         'untagged': '.1.3.6.1.4.1.43.45.1.2.23.1.2.1.1.1.18',
     }
     _oids_poe = {
@@ -88,10 +86,8 @@ class Switch:
 
         # default for 3Com / HP (HPN)
         self._mask = _mask_bigendian
-        self._fab_var = '2'
         self.comunidadew = 'private'
         self.ip = ''  # future: get it from interface vlan
-        self.alias = ''  # todo: refactor this
         self.board = {}  # get_geral() fill this
         self.portas = {}
         self.vlans = []
@@ -104,13 +100,25 @@ class Switch:
         self.ip_mac = {}
         self.lldp = {}
         self.uplink = ()
+        self.name = ''
+        self.soft_version = ''
+        self.serial = ''
+        self.vendor = ''
+        self.model = ''
+        self.physical = ''
+        self.mac = ''
+        self.stp = 0
 
         if isinstance(host, str):
             self.host = host
             self.comunidade = community
-            # print("switch: host: {}, comunidade: {}".format(host, community))
             self.sessao = SNMP(host, community, version)
             self.sessao.start()
+
+        if isinstance(host, SNMP):
+            self.sessao = host
+            self.host = host.host
+            self.comunidade = host.community
 
         # this index is per switch model, so a class attribute should be fine.
         if not self._map_baseport_ifindex:
@@ -153,18 +161,21 @@ class Switch:
             self._map_baseport_ifindex[int(_ifindex)] = int(bidx)
 
     def get_geral(self):
-        """ Get basic info of this snmp equipment. Includes Descr.0. """
-        oids = self._oids_geral.values()
-        valores = snmp_values(self.sessao.get(oids))
+        """
+        Get basic info of this snmp equipment and uses the name in the OID dictionary as object attribute.
+        """
+        tmp = {}
+        for k, v in self._oids_fab.items():
+            tmp[k] = v + self._fab_var
+        for k, v in self._oids_geral.items():
+            tmp[k] = v
+        oids = list(tmp.values())
+        values = snmp_values(self.sessao.get(oids))
 
-        for x, y in list(zip(self._oids_geral.keys(), valores)):
-            self.board[x] = y
-
-        self.board['mac'] = format_mac(self.board['mac'])
-        tmp = self.board['nome'].upper().split('-')
-        self.alias = tmp[0] + '-' + tmp[-1]
-        self.board['stp'] = int(self.board['stp'])
-        # print("-- Switch: {}, {}".format(self.board['mac'], self.board['nome']))
+        for x, y in list(zip(tmp.keys(), values)):
+            setattr(self, x, y)
+        self.mac = format_mac(self.mac)
+        self.stp = int(self.stp)
 
     def load(self):
         """
@@ -172,10 +183,6 @@ class Switch:
          except the mac-ip list.
         """
         self.get_geral()
-
-        self.get_fab()
-        logging.debug(self.board)
-
         self.get_vlans()
         logging.debug('-- self.vtagged: ' + str(self.vtagged))
         logging.debug('-- self.vuntagged: ' + str(self.vuntagged))
@@ -189,17 +196,6 @@ class Switch:
 
         self.get_mac_list()
         logging.debug(('-- mac list: ', *self.macs))
-
-    # _fab_var será definido pelas subclasses
-    def get_fab(self):
-        oids = tuple(v + self._fab_var for v in self._oids_fab)
-        valores = self.sessao.get(oids)
-        sys_fisico, sys_versoft, sys_serial, sys_fab, sys_modelo = snmp_values(valores)
-        self.board['fisico'] = sys_fisico
-        self.board['versoft'] = sys_versoft
-        self.board['serial'] = sys_serial
-        self.board['fab'] = sys_fab.split(' ')[0]
-        self.board['modelo'] = sys_modelo
 
     # mapa de vlans tagged (egress) e untagged. O mapa usa basePort como referência
     def get_vlans(self):
@@ -239,25 +235,9 @@ class Switch:
                       [self._oids_vlans['untagged'] + '.' + x for x in self.vlans]) for k, v in z.items()
         }
 
-    # dot1dStpPortEnable (1,2 = ena, disable), dot1dStpPortState,
-    #               stp_admin                       stp_state                   stp_pvid
-    _oids_stp = ('.1.3.6.1.2.1.17.2.15.1.4.', '.1.3.6.1.2.1.17.2.15.1.3.', '.1.3.6.1.2.1.17.7.1.4.5.1.1.')
-
-    def _oid_stp(self, porta):
-        return [v + porta for v in self._oids_stp]
-
-    # poe_admin poe_status poe_class   poe_mpower
-    def _oid_poe(self, porta):
-        return [self._oids_poe['poeadmin'] + v + '.' + self._oids_poe['poesuffix'] + '.' + porta for v in
-                ('3', '6', '10')] \
-               + [self._oids_poe['poempower'] + '.' + self._oids_poe['poesuffix'] + '.' + porta]
-
     # Default for 3Com and HP. Not all switches supports dot1qVlanStaticUntaggedPorts
     # Data: INTEGER {vLANTrunk(1), access(2), hybrid(3), fabric(4)}
     _ifVLANType = '.1.3.6.1.4.1.43.45.1.2.23.1.1.1.1.5'
-
-    def _oid_vtype(self, porta):
-        return ['.'.join([self._ifVLANType, porta])]
 
     # devolve as vlans tagged e untagged para aquela port
     # precisa que seja carregada as vlans existentes nesse switch antes
@@ -272,7 +252,7 @@ class Switch:
         vuntag = []
         # vamos descobrir quais vlans uma port possui, tanto tagged qto untagged.
         for j in self.vlans:
-            # qdo há algum bug ao tentar pegar as vlans tagged e untagged...
+            # skip tagged and untagged in case of problem.
             if j not in self.vtagged or j not in self.vuntagged:
                 continue
             # ignora alguns erros temporários do tipo deletar vlan e o SNMP não atualizar em todas as tabelas.
@@ -287,29 +267,44 @@ class Switch:
                 if x > 0: vtag += [j]
                 if y > 0: vuntag += [j]
             except:
-                print('-- ## switch::_vlans_ports: erro port {}'.format(port))
-        return (vtag, vuntag)
+                print('-- ## switch::_vlans_ports: err port {}'.format(port))
+        return vtag, vuntag
 
-    # NULL values ruins all values of a oid list, even those valid
-    # so we have to individually get result by result
-    def _snmp_ports_stp(self, porta):
-        oidlist = self._oid_stp(porta)
+    #       dot1dStpPortEnable                dot1dStpPortState,
+    #       (1,2 = ena, disable)              (1=disabled, 2=blocking, 3=listening, 4=learning, 5=forwarding, 6=broken)
+    #               stp_admin                       stp_state                   stp_pvid
+    _oids_stp = ('.1.3.6.1.2.1.17.2.15.1.4.', '.1.3.6.1.2.1.17.2.15.1.3.', '.1.3.6.1.2.1.17.7.1.4.5.1.1.')
+
+    def _snmp_ports_stp(self, port):
+        oidlist = [v + port for v in self._oids_stp]
         ret = []
         for i in oidlist:
             ret += self.sessao.get(i)
         return ret
 
-    def _snmp_ports_poe(self, porta):
-        # poe_admin poe_status poe_class  poe_mpower
-        oidlist = self._oid_poe(porta)
+    def _snmp_ports_vtype(self, port):
+        oidlist = ['.'.join([self._ifVLANType, port])]
+        ret = []
+        for i in oidlist:
+            ret += self.sessao.get(i)
+        return ret
+
+    # poe_admin poe_status poe_class   poe_mpower
+    def _oid_poe(self, port):
+        return [self._oids_poe['poeadmin'] + v + '.' + self._oids_poe['poesuffix'] + '.' + port for v in
+                ('3', '6', '10')] \
+               + [self._oids_poe['poempower'] + '.' + self._oids_poe['poesuffix'] + '.' + port]
+
+    def _snmp_ports_poe(self, port):
+        """
+        Get poe_admin, poe_status, poe_class, poe_mpower.
+        Splitted into 2 methods: the first creates the OIDs, which changes among switches.
+        The second gets them. Some (D-LINK) may overwrite this to change the returned value or something else.
+        :param port: switch port, as string
+        :return:
+        """
+        oidlist = self._oid_poe(port)
         return self.sessao.get(oidlist)
-
-    def _snmp_ports_vtype(self, porta):
-        oidlist = self._oid_vtype(porta)
-        ret = []
-        for i in oidlist:
-            ret += self.sessao.get(i)
-        return ret
 
     # Testa se a port é uma Interface VLAN
     # Significado de cada um desses valores:
@@ -374,24 +369,24 @@ class Switch:
                     '.1.3.6.1.2.1.2.2.1.10.' + i, '.1.3.6.1.2.1.2.2.1.16.' + i]
         result = self.sessao.get(oidlist)
 
-        valores = snmp_values(result, filter=True)
+        values = snmp_values(result, filter=True)
         ifdesc, ifmtu, ifspeed, ifphys, ifadmin, ifoper, iflast, ifindis, \
-        ifoutdis, ifduplex, ifalias, ifhcinoct, ifhcoutoct, ifinoct, ifoutoct = valores
-        ifinoct = ifhcinoct if ifinoct < ifhcinoct else ifinoct
+        ifoutdis, ifduplex, ifalias, ifhcinoct, ifhcoutoct, ifinoct, ifoutoct = values
+        ifinoct  = ifhcinoct if ifinoct < ifhcinoct else ifinoct
         ifoutoct = ifhcoutoct if ifoutoct < ifhcoutoct else ifoutoct
-        # Specific things for each vendor / model.
-        # Uses separeted methods for easier overload.
-        oidlist = self._snmp_ports_stp(i)
-        oidlist += self._snmp_ports_poe(i)
-        oidlist += self._snmp_ports_vtype(i)
-        valores = snmp_values(oidlist, filter=True)
-        stp_admin, stp_state, stp_pvid, poe_admin, poe_status, poe_class, poe_mpower, vtype = valores
-        del result, oidlist, valores
+        # Specific things for each vendor / model. Uses separated methods for easier overload.
+        result = self._snmp_ports_stp(i)
+        result += self._snmp_ports_poe(i)
+        result += self._snmp_ports_vtype(i)
+        values = snmp_values(result, filter=True)
+        stp_admin, stp_state, stp_pvid, poe_admin, poe_status, poe_class, poe_mpower, vtype = values
+        del result, oidlist, values
 
         ifspeed = int(ifspeed)
         ifspeedn = int(ifspeed / 1000000) if ifspeed > 0 else ifspeed
         # \-- iflast, when the interface last changed, format TimeTicks =  0:00:00.00
-        iflast = sum([part * base for part, base in zip((3600, 60, 1), map(float, iflast.split(':')))]) * 100
+        iflast = int(sum([part * base for part, base in
+                          zip((86400, 3600, 60, 1), map(float, iflast.split(':')))]) * 100)
         # Some switches are too much verbose on interface description. Altough the max length check should be done by
         # other class, it won't know how handle the information contained here except trunking the string to a certain
         # length.
@@ -407,30 +402,30 @@ class Switch:
             if len(vtag) > 4090:  # probably trunking port with 'permit vlan all' and all vlans created.
                 vtag = [4095, ]
 
-        logging.debug('-- port {} ({}), vtag = "{}", vuntag = "{}"'.format(str(porta), str(ifdesc), (vtag), (vuntag)))
+        logging.debug('-- port {} ({}), vtag = "{}", vuntag = "{}"'.format(str(porta), str(ifdesc), vtag, vuntag))
         return {
-            'speed': ifspeedn
-            , 'duplex': int(ifduplex)
-            , 'admin': int(ifadmin)
-            , 'oper': int(ifoper)
-            , 'lastchange': iflast
-            , 'discards_in': int(ifindis)
-            , 'discards_out': int(ifoutdis)
-            , 'oct_in': int(ifinoct)
-            , 'oct_out': int(ifoutoct)
-            , 'stp_admin': int(stp_admin)
-            , 'stp_state': int(stp_state)
-            , 'poe_admin': int(poe_admin)
-            , 'poe_detection': self._conv_poe_status(poe_status)
-            , 'poe_class': int(poe_class)
-            , 'poe_mpower': int(poe_mpower)
-            , 'mac_count': 0
-            , 'pvid': stp_pvid
-            , 'porta_tagged': vtag
-            , 'porta_untagged': vuntag
+            'speed': ifspeedn,
+            'duplex': int(ifduplex),
+            'admin': int(ifadmin),
+            'oper': int(ifoper),
+            'lastchange': iflast,
+            'discards_in': int(ifindis),
+            'discards_out': int(ifoutdis),
+            'oct_in': int(ifinoct),
+            'oct_out': int(ifoutoct),
+            'stp_admin': int(stp_admin),
+            'stp_state': int(stp_state),
+            'poe_admin': int(poe_admin),
+            'poe_detection': self._conv_poe_status(poe_status),
+            'poe_class': int(poe_class),
+            'poe_mpower': int(poe_mpower),
+            'mac_count': 0,
+            'pvid': stp_pvid,
+            'tagged': vtag,
+            'untagged': vuntag,
             # data: will be defined somewhere else.
-            , 'nome': ifdesc
-            , 'alias': ifalias
+            'nome': ifdesc,
+            'alias': ifalias,
         }
 
     def _conv_poe_status(self, poe_status):
@@ -484,17 +479,15 @@ class Switch:
         # se Telefone... pula.
         # basicamente, 0 = other, 36 = bridge & telefone (Yealink), &4 = bridge
         logging.debug("[{} / {}] lldp_filter_is_uplink: port {} :: capenable = {:d}".
-                      format(self.alias, self.host, lporta, arr['capenable']))
+                      format(self.name, self.host, lporta, arr['capenable']))
+        # VOIP or without routing capability
         if arr['capenable'] == 0 or arr['capenable'] == 36 or arr['capenable'] & 4 == 1:
-            # print("-- [{} / {}] lldp_filter_is_uplink: port {} é voip ou s/ roteamento. capenable = {:d}".format(
-            #    self.alias, self.host, lporta, arr['capenable']))
             logging.debug("--           +-----> capenable condition: returning FALSE")
             return False
-
         # alguns voips podem estar com alimentação via fonte.
         if arr['portsubtype'] == '3' and arr['chassissubtype'] == '5':
             logging.debug("--> [{} / {}] lldp_filter_is_uplink: poe port {} :: subtype/chassi = 3/5".
-                          format(self.alias, self.host, lporta))
+                          format(self.name, self.host, lporta))
             return False
 
         # extra OIDs para analisar se o outro lado é switch ou não. Vê se PVID for 1 e POE desabilitado ou ao menos,
@@ -508,8 +501,10 @@ class Switch:
                 )
         res = snmp_values(self.sessao.get(oids))
 
-        # em vez de verificar quem é switch, vamos verificar quem certamente não é: APs. Isso é bem específico para nossas redes
+        # em vez de verificar quem é switch, vamos verificar quem certamente não é: APs.
+        # Isso é bem específico para nossas redes
         # talvez seja bom deixar, no futuro, em algum arquivo de configuração
+        # TODO: refactor
         if res[2] == '20' or res[2] == '55':
             return False
 
@@ -549,17 +544,17 @@ class Switch:
         if is_uplink is not None:
             is_uplink = getattr(self, is_uplink)
 
-        logging.debug("--> : [{} / {}] LLDP: self.lldp {}.".format(self.alias, self.host, str(self.lldp)))
+        logging.debug("--> : [{} / {}] LLDP: self.lldp {}.".format(self.name, self.host, str(self.lldp)))
         vizinhos = self.sessao.walk(self._oids_lldp_mac)
         for (oid, tipo, _rmac) in vizinhos:
             oid = oid.replace(self._oids_lldp_mac, '').split('.')
             # Some devices register the port multiple times, only differs by a temporal key in the OID.
             # We need to filter that.
             lport = int(oid[2])
-            logging.debug("[{} / {}] LLDP: port {}.".format(self.alias, self.host, lport))
+            logging.debug("[{} / {}] LLDP: port {}.".format(self.name, self.host, lport))
             if lport in self.lldp:
                 logging.debug(
-                    "--> NOTE: [{} / {}] LLDP: port {} already registered.".format(self.alias, self.host, lport))
+                    "--> NOTE: [{} / {}] LLDP: port {} already registered.".format(self.name, self.host, lport))
                 continue
             snmpId = oid[1]
             # other data needed to identify the relation with neighbors
@@ -597,7 +592,7 @@ class Switch:
                 # However: rport e portsubtype has the MAC data of the remote port.
                 if _rmac == '""':
                     logging.debug("--> NOTE: [{} / {}] LLDP: lport {}: rmac is null.".
-                                  format(self.alias, self.host, lport))
+                                  format(self.name, self.host, lport))
                     continue
                 rmac = '{:d}.{:d}.{:d}.{:d}'.format(*[int(v, 16) for v in _rmac.strip(' "').split(' ')[-4:]])
 

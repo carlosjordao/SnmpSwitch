@@ -17,7 +17,7 @@ class Switch3Com4500G(Switch3Com):
     def is_compatible(cls, descr):
         s = descr.split(' ')
         if len(s) > 2:
-            parte1, parte2, parte3  = s[0:3]
+            parte1, parte2, parte3 = s[0:3]
             if parte2.lower() == 'switch' and parte3 == '4500G':
                 return True
         return False

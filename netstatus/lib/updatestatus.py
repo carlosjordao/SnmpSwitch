@@ -125,16 +125,16 @@ def _switch_status(rows, dryrun):
             switch.id, switch.serial_number, switch.name, switch.mac, o.host, o.totaltime), file=sys.stderr, end='')
         # the switch should be unique in the database, based on mac / serial_number.
         # But it may be relocated and have name and IP changed. So, apply those changes to the database.
-        switch.name          = o.board['nome']
-        switch.alias         = o.alias[:7]
-        switch.mac           = o.board['mac']
+        switch.name          = o.name
+        switch.alias         = o.name[:3] + '-' + o.name[-2:]
+        switch.mac           = o.mac
         switch.ip            = o.host
-        switch.model         = o.board['modelo']
-        switch.serial_number = o.board['serial']
+        switch.model         = o.model
+        switch.serial_number = o.serial
         switch.status        = 'active'
-        switch.vendor        = o.board['fab']
-        switch.soft_version  = o.board['versoft']
-        switch.stp_root      = o.board['stp']
+        switch.vendor        = o.vendor
+        switch.soft_version  = o.soft_version
+        switch.stp_root      = o.stp
         switch.community_ro  = o.comunidade
         if not dryrun:
             try:
@@ -180,8 +180,8 @@ def _switch_status(rows, dryrun):
             sp.poe_mpower = pdata['poe_mpower']
             sp.mac_count = 0
             sp.pvid = pdata['pvid']
-            sp.port_tagged = pdata['porta_tagged']
-            sp.port_untagged = pdata['porta_untagged']
+            sp.port_tagged = pdata['tagged']
+            sp.port_untagged = pdata['untagged']
             sp.data = now()
             sp.name = pdata['nome'][0:30]
             sp.alias = pdata['alias'][0:80]
