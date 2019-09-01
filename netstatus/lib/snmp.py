@@ -90,7 +90,8 @@ class PseudoSnmp(SNMP):
             pointer = pointer[i]
         return pointer
 
-    def _format_content(self, pointer):
+    @staticmethod
+    def _format_content(pointer):
         content = pointer['content'].strip()
         _type = pointer['type']
         if _type == 'STRING' or _type == 'Hex-STRING':
@@ -109,7 +110,7 @@ class PseudoSnmp(SNMP):
         else:
             # some times cames with their enumeration type if walking without -Oe
             # .1.3.6.1.2.1.2.2.1.3.1 = INTEGER: ethernetCsmacd(6)
-            if not content[0].isdigit():
+            if content and not content[0].isdigit():
                 content = content[content.rfind('(') + 1:-1]
             pointer['content'] = content
 
@@ -122,27 +123,29 @@ class PseudoSnmp(SNMP):
             content = ''
             for line in f:
                 # starts with OID
-                if line[0] == '.':
+                if line[0] == '.' and line[1].isdigit():
                     # netstatus-py lib brings all STRING with double quotes.
                     if pointer:
                         self._format_content(pointer)
                     tmp = line.split(' ')
-                    _idx = tmp[0][1:]   # remove the first dot
-                    _type = tmp[2][:-1] # remove the :
-                    _content = tmp[3:]  # anything else
-                    if _type == '""':   # exceptions to our rule...
-                        _type = 'STRING'
-                        _content = ''
-                    else:
-                        _content = ' '.join(_content)
-                    pointer = self.mib
-                    for i in _idx.split('.'):
-                        if i not in pointer:
-                            pointer[i] = {}
-                        pointer = pointer[i]
-                    pointer['type'] = _type
-                    pointer['content'] = _content
-                    pointer['oid'] = '.' + _idx
+                    try:
+                        _idx = tmp[0][1:]    # remove the first dot
+                        if tmp[2] != '""':       # empty values...
+                            _type = tmp[2][:-1]  # remove the :
+                            _content = ' '.join(tmp[3:])  # anything else
+                        else:
+                            _type = 'STRING'
+                            _content = '""'
+                        pointer = self.mib
+                        for i in _idx.split('.'):
+                            if i not in pointer:
+                                pointer[i] = {}
+                            pointer = pointer[i]
+                        pointer['type'] = _type
+                        pointer['content'] = _content
+                        pointer['oid'] = '.' + _idx
+                    except IndexError as e:
+                        print(line, e)
                 # multi line data
                 else:
                     pointer['content'] += line

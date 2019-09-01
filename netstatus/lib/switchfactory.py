@@ -7,12 +7,12 @@ class SwitchFactory:
     Each subclass must implement sou_compatível(ifDescr) method.
     """
     @classmethod
-    def __type(cls, descr, classe):
+    def _type(cls, descr, classe):
         """ Resolve the fittest subclass for this SNMP Switch through deep first. """
         for switchClass in classe.__subclasses__():
             logging.debug('    \\--> class: {}'.format(switchClass.__name__))
             if switchClass.is_compatible(descr):
-                ret = SwitchFactory.__type(descr, switchClass)
+                ret = SwitchFactory._type(descr, switchClass)
                 if ret is not None:
                     return ret
                 return switchClass
@@ -38,7 +38,7 @@ class SwitchFactory:
         except Exception as e:
             logging.debug("FACTORY: Error with description: {}".format(e))
             return None
-        class_found = SwitchFactory.__type(descr, Switch)
+        class_found = SwitchFactory._type(descr, Switch)
         logging.debug('FACTORY: found class: {}'.format(class_found.__name__))
         return class_found(host, community, version)
 

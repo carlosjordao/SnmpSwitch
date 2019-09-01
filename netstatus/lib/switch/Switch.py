@@ -1,8 +1,12 @@
 import logging
 import math
+import sys
+
+import netsnmp
 
 from netstatus.lib.snmp import SNMP
-from netstatus.lib.switch.switchlib import _mask_bigendian
+from netstatus.settings import Settings
+from netstatus.lib.switch import switchlib
 from .switchlib import *
 
 """
@@ -44,7 +48,6 @@ class Switch:
      enough to get rid of those differences, which are made in the subclass
      implementation, including setup new OIDs values and function redefinition
     """
-    # todo: refactor this
     # basic information from a switch which are usually available without specific MIB tree
     _oids_geral = {
         'name':     '.1.3.6.1.2.1.1.5.0',
@@ -73,7 +76,7 @@ class Switch:
         'poempower': '.1.3.6.1.4.1.43.45.1.10.2.14.1.1.3',
         'poesuffix': '1',
     }
-    management_vlan = globals()['SWITCH_MANAGED_VLAN']
+    management_vlan = Settings.MANAGEMENT_VLAN
     _map_baseport_ifindex = {}
 
     @classmethod
@@ -81,19 +84,14 @@ class Switch:
         return True
 
     def __init__(self, host, community='public', version=2):
-        if not host:
-            return
-
         # default for 3Com / HP (HPN)
-        self._mask = _mask_bigendian
+        self._mask = mask_bigendian
         self.comunidadew = 'private'
         self.ip = ''  # future: get it from interface vlan
-        self.board = {}  # get_geral() fill this
         self.portas = {}
         self.vlans = []
         self.vtagged = {}
         self.vuntagged = {}
-        # self.__lldp = {}
         self.intvlan = {}
         self.macs = ()
         self.macs_filtered = ()
@@ -109,6 +107,9 @@ class Switch:
         self.mac = ''
         self.stp = 0
 
+        if not host:
+            return
+
         if isinstance(host, str):
             self.host = host
             self.comunidade = community
@@ -123,7 +124,6 @@ class Switch:
         # this index is per switch model, so a class attribute should be fine.
         if not self._map_baseport_ifindex:
             self.map_baseport()
-        logging.debug(('-- _map_baseport_ifindex: ', self._map_baseport_ifindex))
 
     def set_start(self, comunidadew='private', version=2, force=False):
         """
@@ -190,7 +190,7 @@ class Switch:
         self.get_ports()
         logging.debug('-- ports: ' + str(self.portas))
 
-        self.get_lldp_neighbor()
+        self.get_lldp_neighbors()
         logging.debug(('-- after get_lldP_neighbor(): ', self.lldp))
         logging.debug(('   +---> uplinks: ', self.uplink))
 
@@ -200,7 +200,9 @@ class Switch:
     # mapa de vlans tagged (egress) e untagged. O mapa usa basePort como referência
     def get_vlans(self):
         """
-        Get Tagged and Untagged vlans from switch as dictionaries.
+        Get Egress (or Tagged) and Untagged vlans from switch as dictionaries.
+        Tagged vlans for a port are obtained later, with _vlans_ports()
+        Some switches has egress portlist instead (has both tagged and untagged)
         Problems: each switch store vlans in different OIDs, you need to dig out that info.
         Some switches brings the vlan list out of order or the value into the OID body instead the VALUE part of the
         request. Huawei switches store all possible vlans, even if not created, so we need to filter out that too.
@@ -235,12 +237,6 @@ class Switch:
                       [self._oids_vlans['untagged'] + '.' + x for x in self.vlans]) for k, v in z.items()
         }
 
-    # Default for 3Com and HP. Not all switches supports dot1qVlanStaticUntaggedPorts
-    # Data: INTEGER {vLANTrunk(1), access(2), hybrid(3), fabric(4)}
-    _ifVLANType = '.1.3.6.1.4.1.43.45.1.2.23.1.1.1.1.5'
-
-    # devolve as vlans tagged e untagged para aquela port
-    # precisa que seja carregada as vlans existentes nesse switch antes
     def _vlans_ports(self, port):  # , pvid):
         """
         Get VLANS associate to a port. Need to call get_vlans() before this one.
@@ -250,25 +246,36 @@ class Switch:
         """
         vtag = []
         vuntag = []
-        # vamos descobrir quais vlans uma port possui, tanto tagged qto untagged.
         for j in self.vlans:
-            # skip tagged and untagged in case of problem.
-            if j not in self.vtagged or j not in self.vuntagged:
-                continue
-            # ignora alguns erros temporários do tipo deletar vlan e o SNMP não atualizar em todas as tabelas.
-            try:
-                T = self.portlist(self.vtagged[j], port)
-                U = self.portlist(self.vuntagged[j], port)
-                # se a port está marcada como egress e untagged, zera a egress
-                x = T if T > 0 and U == 0 else 0
-                # port do pvid aparece como untagged...
-                y = U if U > 0 else 0
-
-                if x > 0: vtag += [j]
-                if y > 0: vuntag += [j]
-            except:
-                print('-- ## switch::_vlans_ports: err port {}'.format(port))
+            t = self.portlist(self.vtagged[j], port)
+            u = self.portlist(self.vuntagged[j], port)
+            if t > 0 and u == 0:
+                vtag += [j]
+            if u > 0:
+                vuntag += [j]
         return vtag, vuntag
+
+    def portlist(self, portlist, port):
+        """
+        Tells if the port has a vlan or not.
+        Interprets PortList, which each bit represents a port. A switch may use little endian or big endian to store
+        this data.
+
+        rfc2674-qbridge.mib
+        DESCRIPTION
+            "Each octet within this value specifies a set of eight ports, with the first octet specifying ports 1
+            through 8, the second octet specifying ports 9 through 16, etc.
+            Within each octet, the most significant bit represents the lowest numbered port, and the least significant
+            bit represents the highest numbered port.  Thus, each port of the bridge is represented by a single bit
+            within the value of this object.  If that bit has a value of '1' then that port is included in the set of
+            ports; the port is not included if its bit has a value of '0'."
+        """
+        nport = int(port) - 1
+        if nport < 0:
+            return 0
+        idx = nport // 8
+        mask = self._mask(nport)  # set in __init__
+        return portlist[idx] & mask if idx < len(portlist) else 0
 
     #       dot1dStpPortEnable                dot1dStpPortState,
     #       (1,2 = ena, disable)              (1=disabled, 2=blocking, 3=listening, 4=learning, 5=forwarding, 6=broken)
@@ -276,13 +283,18 @@ class Switch:
     _oids_stp = ('.1.3.6.1.2.1.17.2.15.1.4.', '.1.3.6.1.2.1.17.2.15.1.3.', '.1.3.6.1.2.1.17.7.1.4.5.1.1.')
 
     def _snmp_ports_stp(self, port):
+        port = str(port)
         oidlist = [v + port for v in self._oids_stp]
         ret = []
         for i in oidlist:
             ret += self.sessao.get(i)
         return ret
 
+    # Data: INTEGER {vLANTrunk(1), access(2), hybrid(3), fabric(4)}
+    _ifVLANType = '.1.3.6.1.4.1.43.45.1.2.23.1.1.1.1.5'
+
     def _snmp_ports_vtype(self, port):
+        port = str(port)
         oidlist = ['.'.join([self._ifVLANType, port])]
         ret = []
         for i in oidlist:
@@ -291,6 +303,7 @@ class Switch:
 
     # poe_admin poe_status poe_class   poe_mpower
     def _oid_poe(self, port):
+        port = str(port)
         return [self._oids_poe['poeadmin'] + v + '.' + self._oids_poe['poesuffix'] + '.' + port for v in
                 ('3', '6', '10')] \
                + [self._oids_poe['poempower'] + '.' + self._oids_poe['poesuffix'] + '.' + port]
@@ -355,8 +368,12 @@ class Switch:
                 continue
             self.intvlan[int(vlan)] = tuple(valores)
 
-    # PARAM: espera-se que port seja do tipo 'int'
     def get_port_ether(self, porta):
+        """
+        Get internet / ethernet ports (not interface vlan or other types)
+        :param porta: must be int
+        :return:
+        """
         # some functions need this as integer, so we will do it only once.
         i = str(porta)
 
@@ -394,8 +411,8 @@ class Switch:
         # the port.
         ifdesc = self._format_ifdesc(ifdesc)
 
-        vtag = ''
-        vuntag = ''
+        vtag = []
+        vuntag = []
         # 2 = port access, vtag and vuntag are not applicable.
         if vtype != '2':
             vtag, vuntag = self._vlans_ports(porta)
@@ -447,16 +464,16 @@ class Switch:
             port = self._map_bport_ifidx(int(port))
             if filterLLDP and port in self.uplink:
                 continue
-            # dentro do OID tem informação da VLAN e do MAC associado a uma port.
+            # get VLAN and MAC from OID
             vlan = int(oid[14])
             mac = '{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}'.format(*(int(v) for v in oid[15:]))
-            # blacklist ou alguma configuração do tipo (static, interface vlan, etc)
+            # blacklist or configuration like static, interface vlan, etc
             if port == 0:
                 self.macs_filtered += ((port, mac, vlan),)
             else:
                 self.macs += ((port, mac, vlan),)
 
-    def _lldp_filter_is_uplink(self, lporta, arr):
+    def _lldp_is_uplink(self, lport, lldp_port):
         """
             Filters out lldp ports which aren't switches, like voips and wireless routers.
             You may not need this kind of filter. This checks some possible configurations like POE on, PVID and
@@ -474,48 +491,24 @@ class Switch:
                             docsisCableDevice(6),
                             stationOnly(7)
                     }
+
         """
-        # se for "00" (em hex), é um voip. Ou algo sem qualquer capacidade de rotear
-        # se Telefone... pula.
-        # basicamente, 0 = other, 36 = bridge & telefone (Yealink), &4 = bridge
+        # if "00" (hex), then is voip or something without routing capabilites.
+        # basically, 0 = other, 36 = bridge & phone (Yealink), &4 = bridge
         logging.debug("[{} / {}] lldp_filter_is_uplink: port {} :: capenable = {:d}".
-                      format(self.name, self.host, lporta, arr['capenable']))
+                      format(self.name, self.host, lport, lldp_port['capenable']))
         # VOIP or without routing capability
-        if arr['capenable'] == 0 or arr['capenable'] == 36 or arr['capenable'] & 4 == 1:
+        if lldp_port['capenable'] == 0 or lldp_port['capenable'] == 36 or lldp_port['capenable'] & 4 == 1:
             logging.debug("--           +-----> capenable condition: returning FALSE")
             return False
-        # alguns voips podem estar com alimentação via fonte.
-        if arr['portsubtype'] == '3' and arr['chassissubtype'] == '5':
+        # guessing any voip with external power source.
+        if lldp_port['portsubtype'] == '3' and lldp_port['chassissubtype'] == '5':
             logging.debug("--> [{} / {}] lldp_filter_is_uplink: poe port {} :: subtype/chassi = 3/5".
-                          format(self.name, self.host, lporta))
+                          format(self.name, self.host, lport))
             return False
-
-        # extra OIDs para analisar se o outro lado é switch ou não. Vê se PVID for 1 e POE desabilitado ou ao menos,
-        # baixo consumo.
-        # .1.0.8802.1.1.2.1.5.4623.1.2.2.1.6.lporta  -> power class. Talvez seja interessante isso. 1 = switch.
-        # .1.0.8802.1.1.2.1.5.4623.1.2.2.1.3.lporta  -> (true/false 1/2) se POE está habilitado.
-        # .1.0.8802.1.1.2.1.5.32962.1.2.1.1.1.lporta -> pvid da port.
-        oids = ('.1.0.8802.1.1.2.1.5.4623.1.2.2.1.6.' + lporta,
-                '.1.0.8802.1.1.2.1.5.4623.1.2.2.1.3.' + lporta,
-                '.1.0.8802.1.1.2.1.5.32962.1.2.1.1.1.' + lporta,
-                )
-        res = snmp_values(self.sessao.get(oids))
-
-        # em vez de verificar quem é switch, vamos verificar quem certamente não é: APs.
-        # Isso é bem específico para nossas redes
-        # talvez seja bom deixar, no futuro, em algum arquivo de configuração
-        # TODO: refactor
-        if res[2] == '20' or res[2] == '55':
-            return False
-
-        # return True if (res[2] == '1' or int(res[2]) >= 100) and (res[1] == '2' or res[0] == '1') else False
-        # modificando: se POE está desligado OU power class == 1, então não será VOIP nem AP
-        if res[1] == 2 or res[0] == '1':
-            return True
-        logging.debug(('lldp_filter_is_uplink: poe: ', res[1]))
-        # return True if res[1] != '1' else False
-        # adicionar outros testes... o antigo está falho. Deixar como False até criar melhores condições
-        return False
+        # delegating to a dynamic function able to do custom checks.
+        extra_uplink_test = getattr(switchlib, Settings.LLDP_IS_UPLINK_EXTRA) if Settings.LLDP_IS_UPLINK_EXTRA else None
+        return extra_uplink_test(self, lport, lldp_port) if extra_uplink_test else False
 
     # mudanças para detectar melhor o que há na outra ponta
     # lldpRemChassisId
@@ -533,20 +526,15 @@ class Switch:
         'locportdesc': '.1.0.8802.1.1.2.1.3.7.1.4',
     }
 
-    def get_lldp_neighbor(self, is_uplink="_lldp_filter_is_uplink"):
+    def get_lldp_neighbors(self):
         """
         Get neighbors through LLDP.
-        :param is_uplink: optional function to filter LLDP neighbors
         :return: [{lport: {rmac, rporta, locportdesc, remsysname, remportdesc}},]
         """
-        # self.__lldp = {}    # full set
         self.lldp = {}
-        if is_uplink is not None:
-            is_uplink = getattr(self, is_uplink)
-
         logging.debug("--> : [{} / {}] LLDP: self.lldp {}.".format(self.name, self.host, str(self.lldp)))
-        vizinhos = self.sessao.walk(self._oids_lldp_mac)
-        for (oid, tipo, _rmac) in vizinhos:
+        neighbors = self.sessao.walk(self._oids_lldp_mac)
+        for (oid, tipo, _rmac) in neighbors:
             oid = oid.replace(self._oids_lldp_mac, '').split('.')
             # Some devices register the port multiple times, only differs by a temporal key in the OID.
             # We need to filter that.
@@ -588,7 +576,7 @@ class Switch:
             elif res['chassissubtype'] == '5':
                 logging.debug('--            +++----->  _rmac = "{}"'.format(_rmac))
                 # VOIPs Yealink let the field _oids_lldp_mac empty.
-                # They set chassissubtype as networkAddress, but don't any other type of information.
+                # They set chassissubtype as networkAddress, but don't put any other type of information.
                 # However: rport e portsubtype has the MAC data of the remote port.
                 if _rmac == '""':
                     logging.debug("--> NOTE: [{} / {}] LLDP: lport {}: rmac is null.".
@@ -597,8 +585,8 @@ class Switch:
                 rmac = '{:d}.{:d}.{:d}.{:d}'.format(*[int(v, 16) for v in _rmac.strip(' "').split(' ')[-4:]])
 
             elif res['chassissubtype'] == '7':
-                # Ignoring local ports this time. We need to find a device for that.
-                # usually local ports are not numeric and we'll storage only numbers for ports.
+                # Ignoring local ports this time. We need to find a device for that to test this.
+                # usually local ports are not numeric and we storage only numbers for ports.
                 continue
             else:
                 rmac = _rmac.strip()
@@ -610,7 +598,6 @@ class Switch:
                     res['capenable'] = ord(res['capenable'])
             except:
                 pass
-
             """
              -- RPORT -> the port of our neighbor
 
@@ -637,52 +624,16 @@ class Switch:
             else:
                 rporta = res['rport']
 
-            # self.lldp[lport] = (rmac, rporta)
             res['rport'] = rporta
             res['rmac'] = rmac
             self.lldp[lport] = res
-            # self.__lldp[lport] = res
-
             try:
-                if is_uplink and is_uplink(str(lport), res):
+                if self._lldp_is_uplink(str(lport), res):
                     self.uplink += (lport,)
             except Exception as e:
                 logging.debug('-- #### Uplink Exception #### ', e)
                 self.uplink += (lport,)
         return self.lldp
-
-    def portlist(self, valor, port):
-        """
-        função para interpretar valor em bits de PortList fornecida via SNMP
-        por cada switch.
-        Cada switch armazena, numa máscara de bits, quais portas estão on ou Off
-        para determinados valores (poe, tag, untag, etc) para cada vlan
-
-        rfc2674-qbridge.mib
-        DESCRIPTION
-            "Each octet within this value specifies a set of eight ports, with the first octet specifying ports 1
-            through 8, the second octet specifying ports 9 through 16, etc.
-            Within each octet, the most significant bit represents the lowest numbered port, and the least significant
-            bit represents the highest numbered port.  Thus, each port of the bridge is represented by a single bit
-            within the value of this object.  If that bit has a value of '1' then that port is included in the set of
-            ports; the port is not included if its bit has a value of '0'."
-
-        assert isinstance(valor, list) or isinstance(valor, tuple), "valor is not list/tuple"
-        assert isinstance(port, int) and port > 0, "port must be int > 0"
-        """
-        nporta = port - 1
-        try:
-            idx = math.floor(nporta / 8)
-        except:
-            idx = 0
-        mask = self._mask(nporta)  # defined in __init__
-
-        # print('-- switch::portlist, port = {}, idx = {}, mascara = {}'.format(port,idx,mascara))
-        # If you get problems here, recheck the OID. A wrong or bad one gives trouble.
-        try:
-            return valor[idx] & mask
-        except:
-            return 0
 
     # ipNetToMediaPhysAddress - ipv4
     _oids_ip2mac = '.1.3.6.1.2.1.4.22.1.2'

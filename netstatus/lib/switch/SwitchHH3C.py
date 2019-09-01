@@ -1,4 +1,4 @@
-from .switchlib import _mask_littleendian
+from .switchlib import mask_littleendian
 from .Switch import Switch
 
 
@@ -57,7 +57,7 @@ class SwitchHH3C_J9850A(SwitchHH3C):
 
     def __init__(self, host, community='public', version=2):
         super().__init__(host, community, version)
-        self._mascara = _mask_littleendian
+        self._mask = mask_littleendian
         self._oids_poe['poesuffix'] = '1'
         self._fab_var = '1'
         self._oids_vlans = {
@@ -67,7 +67,7 @@ class SwitchHH3C_J9850A(SwitchHH3C):
         }
 
     # gambiarra até resolver o problema da descoberta correta do uplink
-    def _lldp_filter_é_uplink(self, lporta, arr):
+    def _lldp_is_uplink(self, lporta, arr):
         return True
 
 # -----------------

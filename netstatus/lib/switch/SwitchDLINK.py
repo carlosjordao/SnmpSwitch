@@ -1,6 +1,6 @@
 import re
 
-from .switchlib import _mask_littleendian
+from .switchlib import mask_littleendian
 from .Switch import Switch
 from .switchlib import *
 
@@ -23,7 +23,7 @@ class SwitchDLINK(Switch):
 
     def __init__(self, host, community='public', version=2):
         super().__init__(host, community, version)
-        self._mascara = _mask_littleendian
+        self._mask = mask_littleendian
         self._fab_var = '1'
         self._oids_vlans = {
             'vlans': '.1.3.6.1.2.1.17.7.1.4.2.1.3',
