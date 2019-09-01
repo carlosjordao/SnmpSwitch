@@ -23,6 +23,7 @@ INSTALL
 
 * This software uses PostgreSQL as there are functions, procedures and rules to spice some things.
 * create a database called "snmpswitch" and use the snmpswitch.sql to create tables and other structures.
+* You should create the database first, through snmpswitch.sql, as it has several rules and functions to improve some background actions (on delete, on insert, etc), allowing the app to be simpler.
 * this github stores a django project. If you already have a server with python and django, you may import only the 'netstatus' app.
 * new switches are inserted through the web interface 'Probe the Net' > 'Probe one switch'
 * new printers follows the same path.
@@ -34,6 +35,9 @@ USE
 * after inserting all switches you want, you should see them on 'Network Status' link
 * you may use crontab or any other type of job manager to call the URL /probe/updatedb, as this will read the database and update all switches stored in there. 
 * you should protect the above link, or even the entire application, with a firewall or django auth (the last is not included).
+* Use crontab to run this SQL commands for database maintenance (1x per week):
+	 select * from mac_history(); delete from mac_log; REFRESH MATERIALIZED VIEW mat_listmachistory 
+
 
 
 Evolution
