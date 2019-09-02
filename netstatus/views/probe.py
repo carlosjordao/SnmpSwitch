@@ -13,7 +13,7 @@ def probe_view(request):
 def probe_service(request, service, target='', community='public'):
     if request.method == 'POST':
         return HttpResponse('invalid request.')
-    response = []
+
     if service == 'printer':
         response = probe_snmp_printer(target, community)
 
