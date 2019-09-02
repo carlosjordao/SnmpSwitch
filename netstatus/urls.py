@@ -13,8 +13,7 @@ Including another URLconf
     1. Import the include() function: from django.conf.urls import url, include
     2. Add a URL to urlpatterns:  url(r'^blog/', include('blog.urls'))
 """
-from django.urls import path, include
-from rest_framework.urlpatterns import format_suffix_patterns
+from django.urls import path
 
 from .views import switches_list, printers_list, voip_list, wifi_list, surv_list
 from .views import macip_api, probe_view, probe_service, report_view
@@ -32,6 +31,4 @@ urlpatterns = [
     path('probe/<str:service>/<str:target>/<str:community>', probe_service),
     path('probe/<str:service>/<str:target>/<str:community>/', probe_service),
 ]
-
-urlpatterns = format_suffix_patterns(urlpatterns)
 

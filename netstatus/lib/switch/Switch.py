@@ -386,7 +386,7 @@ class Switch:
                     '.1.3.6.1.2.1.2.2.1.10.' + i, '.1.3.6.1.2.1.2.2.1.16.' + i]
         result = self.sessao.get(oidlist)
 
-        values = snmp_values(result, filter=True)
+        values = snmp_values(result, filter_=True)
         ifdesc, ifmtu, ifspeed, ifphys, ifadmin, ifoper, iflast, ifindis, \
         ifoutdis, ifduplex, ifalias, ifhcinoct, ifhcoutoct, ifinoct, ifoutoct = values
         ifinoct  = ifhcinoct if ifinoct < ifhcinoct else ifinoct
@@ -395,7 +395,7 @@ class Switch:
         result = self._snmp_ports_stp(i)
         result += self._snmp_ports_poe(i)
         result += self._snmp_ports_vtype(i)
-        values = snmp_values(result, filter=True)
+        values = snmp_values(result, filter_=True)
         stp_admin, stp_state, stp_pvid, poe_admin, poe_status, poe_class, poe_mpower, vtype = values
         del result, oidlist, values
 
