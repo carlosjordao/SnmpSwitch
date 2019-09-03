@@ -20,7 +20,11 @@ def macip_api(request):
             if len(search) > 6:
                 order = 'data DESC'
                 if 'order[0][column]' in request.data:
-                    order = '{} {}'.format(int(request.data['order[0][column]'])+1, request.data['order[0][dir]'][:4])
+                    try:
+                        column = int(request.data['order[0][column]']) + 1
+                    except ValueError:
+                        column = 6
+                    order = '{} {}'.format(column, request.data['order[0][dir]'][:4])
                 filter_ip = ''
                 if 'filter_ip' in request.data and request.data['filter_ip'] == 'true':
                     filter_ip = "ip <> '' AND "
