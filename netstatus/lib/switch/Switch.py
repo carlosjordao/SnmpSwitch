@@ -460,7 +460,6 @@ class Switch:
         logging.debug("macs = {}".format(macs))
         for (oid, _type, port) in macs:
             oid = oid.strip().split('.')
-            # logging.debug("oid + port = {}  ++  {}".format(oid, port))
             port = self._map_bport_ifidx(int(port))
             if filterLLDP and port in self.uplink:
                 continue
@@ -510,7 +509,6 @@ class Switch:
         extra_uplink_test = getattr(switchlib, Settings.LLDP_IS_UPLINK_EXTRA) if Settings.LLDP_IS_UPLINK_EXTRA else None
         return extra_uplink_test(self, lport, lldp_port) if extra_uplink_test else False
 
-    # mudanças para detectar melhor o que há na outra ponta
     # lldpRemChassisId
     _oids_lldp_mac = '.1.0.8802.1.1.2.1.4.1.1.5'
     _oids_lldp = {
@@ -547,13 +545,13 @@ class Switch:
             snmpId = oid[1]
             # other data needed to identify the relation with neighbors
             res = {}
-            for k, oid in self._oids_lldp_local.items():
-                logging.debug("{} = {}".format(k, self.sessao.get('.'.join((oid, str(lport))))[0][2]))
-                res[k] = snmp_values(self.sessao.get('.'.join((oid, str(lport)))))[0]
+            for k, o in self._oids_lldp_local.items():
+                logging.debug("{} = {}".format(k, self.sessao.get('.'.join((o, str(lport))))[0][2]))
+                res[k] = snmp_values(self.sessao.get('.'.join((o, str(lport)))))[0]
 
-            for k, oid in self._oids_lldp.items():
+            for k, o in self._oids_lldp.items():
                 # D-LINK gives some errors, so we need to do some adjusts
-                res[k] = snmp_values(self.sessao.getnext('.'.join((oid, snmpId, str(lport)))))[0]
+                res[k] = snmp_values(self.sessao.getnext('.'.join((o, snmpId, str(lport)))))[0]
 
             """
             lldpRemPortIdSubtype
