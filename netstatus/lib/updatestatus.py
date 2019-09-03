@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from netstatus.lib.switchfactory import SwitchFactory
 from netstatus.models import Switches, SwitchesNeighbors, Mac, SwitchesPorts
-
+from netstatus.settings import Settings
 
 IP_CORE = ''
 switches_list = {}
@@ -126,7 +126,6 @@ def _switch_status(rows, dryrun):
         # the switch should be unique in the database, based on mac / serial_number.
         # But it may be relocated and have name and IP changed. So, apply those changes to the database.
         switch.name          = o.name
-        switch.alias         = o.name[:3] + '-' + o.name[-2:]
         switch.mac           = o.mac
         switch.ip            = o.host
         switch.model         = o.model
@@ -136,6 +135,12 @@ def _switch_status(rows, dryrun):
         switch.soft_version  = o.soft_version
         switch.stp_root      = o.stp
         switch.community_ro  = o.comunidade
+
+        try:
+            switch.alias = Settings.SWITCH_ALIAS(o.name) if Settings.SWITCH_ALIAS else o.name[:6]
+        except TypeError:
+            switch.alias = o.name[:6]
+
         if not dryrun:
             try:
                 switch.save()
