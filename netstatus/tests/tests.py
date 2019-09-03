@@ -18,6 +18,10 @@ class TestSwitch(unittest.TestCase):
         self.assertTrue(hasattr(Settings, 'MANAGEMENT_VLAN'))
         self.assertIsNotNone(getattr(switchlib, Settings.LLDP_IS_UPLINK_EXTRA, None),
                              'LLDP_IS_UPLINK_EXTRA should be defined in switchlib')
+        if Settings.SWITCH_ALIAS:
+            l = lambda: 0
+            self.assertEqual(Settings.SWITCH_ALIAS.__name__, l.__name__,
+                             'SWITCH_ALIAS should be a lambda expression or None')
 
     def test_factory(self):
         descr = 'HPE Comware Platform Software, Software Version 7.1.070, Release 3208P15\n' \
@@ -181,7 +185,7 @@ class TestSwitchLoad(unittest.TestCase):
             oidlist = switch._snmp_ports_stp(i)
             oidlist += switch._snmp_ports_poe(i)
             oidlist += switch._snmp_ports_vtype(i)
-            valores = [x for x in snmp_values(oidlist, filter=True)]
+            valores = [x for x in snmp_values(oidlist, filter_=True)]
             self.assertEqual(valores, check_ports_v1[port], "port (stp, poe, vtype) failed on {}".format(port))
 
         oid_iftype = '.1.3.6.1.2.1.2.2.1.3.1'
