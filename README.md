@@ -12,8 +12,8 @@ The current version supports some switches, like 3Com 4500G, Huawei S5720, D-LIN
 Use this software at your own risk.
 
 # Preview
-![image1](https://imgur.com/keA4LvH)
-![image2](https://imgur.com/AlOLTJM)
+[image1](https://i.imgur.com/keA4LvH.png)
+[image2](https://i.imgur.com/AlOLTJM.png)
 
 # INSTALL
   * Depends on: psycopg2, django, python 3, netsnmp-py
