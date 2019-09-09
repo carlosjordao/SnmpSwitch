@@ -1,0 +1,65 @@
+{% extends 'header_menu.html' %}
+{% load static %}
+{% block customcss %}
+    <link rel="stylesheet" href="{% static 'css/network.css' %}">
+{% endblock %}
+{% block content %}
+<p>
+    Using this app is pretty straightforward. Just go to the probe section and add as many switches you have by clicking
+    "probe it!".
+    After that, you would call the URL for update all the switches, either through web, curl or wget, usually by crontab
+    or something alike.
+</p>
+<p>
+    General probe interface meaning:<br>
+    <ul>
+        <li>Printer - "probe it!": check for snmp data from a printer connected to a net,
+            and add it to the database.</li>
+        <li>Switch - "probe it!": main use is for add a new switch to the database. It will get all main data, like
+            ports, neighbors, serial numbers, mac by port, among others.</li>
+        <li>Switch - "Neighbors": list other switches connected to this one.
+            Just to make it easier check something.</li>
+        <li>Update all switches - "Probe them!": get a list of switches by IP from database,
+            probe all of them in parallel and save back the data gathered to the database.
+            This main use is for cron tasks, like every 15 minutes or bigger interval.</li>
+        <li>Search interface: search for mac or IP in your network, where they were last seem.</li>
+    </ul>
+</p>
+<p>
+    Other pages meaning:<br>
+    <ul>
+        <li>Search: search for mac or IP in your network, where they were last seem.</li>
+        <li>Voip, Surveillance, Wireless: check your devices stored in database and
+            when and where they were last seen</li>
+        <li>Report: some basic statistics about ports used, their speed and use.</li>
+    </ul>
+</p>
+<p>
+	<b>Meaning for switch list page symbols:</b>
+</p>
+<table width="100%" style="">
+  {% for switch in switches %}
+  <tr>
+    <td style='background-color: #222;' id='{{switch.name}}'>
+			<p>{{switch.name}}</p>
+    </td>
+    <td class="port_grid" style="{% if switch.ports_rendered|length > 28 %}grid-template-columns: repeat(24, 1fr);{% endif %}">
+        {% for main_ in switch.ports_rendered %}
+        {% spaceless %}
+        <div class="switchport{% for c in main_ %}{% if c.maincss %} {{ c.maincss }}{% endif %}{% endfor %}"
+             title="{% for c in main_ %}{% if c and c.maintitle %}{{c.maintitle}}
+{% endif %}{% endfor %}">
+            {% for c in main_ %}
+                {% if c is not None and c.content %}
+                    <span class="{{c.class}}" title="{{c.title|safe}}">{{c.content|safe}}</span>
+                    {% if not c.inline %}<br>{% endif %}
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endspaceless %}
+        {% endfor %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}
