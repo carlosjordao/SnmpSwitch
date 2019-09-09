@@ -67,8 +67,8 @@ td {
   background-color: darkslategray;
 }
 .stp_root { 
-  border: 1px dotted lightgreen; 
-  border-top: 3px solid orange;
+  border: 1px dotted lightgreen;
+  border-top: 3px solid orange !important;
 }
 .stp_warning { 
   border: 1px dotted yellow; 
@@ -106,9 +106,7 @@ td {
   text-decoration:none;
 }
 .vizinho_td {
-  /*border-top: 3px solid #F9BC4A;*/
-  /*border-top: 3px solid orange;*/
-  border: 1px dotted lightgreen; 
+  border: 1px dotted lightgreen;
 }
 .printer, .printer a {
   color: pink;

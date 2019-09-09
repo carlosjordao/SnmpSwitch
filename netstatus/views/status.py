@@ -1,7 +1,9 @@
-from django.shortcuts import render
-from django.db.models import F, Subquery, OuterRef
+from collections import namedtuple
 
-from ..models import Switches, SwitchesNeighbors, SwitchesPorts, Mac
+from django.shortcuts import render
+from django.db.models import Subquery, OuterRef
+
+from ..models import Switches, SwitchesNeighbors
 from ..models import Surveillance, Printer, Wifi, Voip
 
 #   those classes are suited for expansion, or the list to be expanded.
@@ -13,7 +15,7 @@ __special_pvid = {20: 'pvid_20', 55: 'pvid_55'}
 
 
 def __set_switches_view_data(maincss=None, maintitle=None, cssclass=None, title=None, content=None, inline=False):
-    if maincss == maintitle == cssclass == title == content == None and inline == False:
+    if maincss == maintitle == cssclass == title == content is None and inline is False:
         return None
     if maintitle and maintitle.strip() == '':
         maintitle = None
@@ -49,7 +51,7 @@ def _format_voip(port, voip):
 def _format_vlan(port):
     if not port:
         return __set_switches_view_data()
-    maincss = cssclass = title = content = ''
+    maincss = cssclass = title = ''
     tag = untag = ''
     if len(port.port_tagged) > 0:
         tag = port.port_tagged.replace(',', ', ')
@@ -57,19 +59,20 @@ def _format_vlan(port):
     if port.port_untagged != str(port.pvid) and port.port_untagged != 0:
         untag = '{}'.format(port.port_untagged.replace(',', ', '))
     if port.pvid in __special_pvid:
-        cssclass += " "+__special_pvid[port.pvid]
+        cssclass += " " + __special_pvid[port.pvid]
+
     if port.pvid == port.port_untagged and tag == '':
         content = '{}'.format(port.pvid)
         cssclass = ' tag_access'
         title = 'Access Port'
-    # if length is too big, reduce it to a better fit in the screen
-    if len(tag)+len(untag) < 10:
+    elif len(tag) + len(untag) < 10:
         if untag:
             content = "{} // {}<br>({})".format(port.pvid, tag, untag)
         else:
             content = "{} // {}".format(port.pvid, tag)
     else:
-        content = "{} // <br><div class=tooltip>•••<span class=tooltiptext>Tagged: {}</span></div>".\
+        # if length is too big, reduce it to a better fit in the screen
+        content = "{} // <br><div class=tooltip>•••<span class=tooltiptext>Tagged: {}</span></div>". \
                     format(port.pvid, tag)
     cssclass = "tag " + cssclass
     return __set_switches_view_data(cssclass=cssclass, title=title, content=content, maincss=maincss)
@@ -78,7 +81,7 @@ def _format_vlan(port):
 def _format_poe(port):
     if not port:
         return __set_switches_view_data()
-    cssclass = title = content = ''
+    cssclass = title = ''
     content = 'P'
     if port.poe_admin == 1:
         power = int(port.poe_mpower) / 1000
@@ -101,7 +104,7 @@ def _format_poe(port):
 def _format_port(port, mac_ip):
     if not port:
         return __set_switches_view_data()
-    cssclass = title = content = maintitle = ''
+    cssclass = title = maintitle = ''
     content = '&nbsp;'
     if port.admin == 2:
         cssclass = 'problema'
@@ -131,15 +134,13 @@ def _format_port(port, mac_ip):
 
 
 def _format_lldp(port, lldp):
-    # print("###>>> lldp type: {}".format(type(lldp)))
     if not lldp:
         return __set_switches_view_data()
-    maincss = ''
-    name = lldp['omac'] if lldp['oname'] is None else lldp['oname']
     cssclass = 'vizinho'
-    title = name
-    content = '<a href="#{}">&uArr;</a>'.format(name)
-    if port.port != port.switch.stp_root:
+    maincss = ''
+    title = lldp['omac'] if lldp['oname'] is None else lldp['oname']
+    content = '<a href="#{}">&uArr;</a>'.format(title)
+    if port.switch.stp_root != port.port:
         maincss = 'vizinho_td'
     return __set_switches_view_data(cssclass=cssclass, title=title, content=content, inline=True, maincss=maincss)
 
@@ -164,7 +165,7 @@ def _format_stp(port, switch):
 def _format_printer(port, printer):
     if not port or not printer:
         return __set_switches_view_data()
-    maincss = cssclass = title = content = ''
+    maincss = ''
     cssclass = 'printer'
     title = '{}\n{}\n{}'.format(printer['dns'], printer['hrdesc'], printer['ip'])
     content = "<a href='http://{}' target=_BLANK>PRT</a>".format(printer['ip'])
@@ -175,12 +176,11 @@ def _format_wifi(port, wifi):
     # this is a specific thing that should put in another place
     if not port or not wifi or port.pvid != 20:
         return __set_switches_view_data()
-    maincss = cssclass = title = content = ''
+    maincss = cssclass = ''
     if port.port_tagged != '77':
         cssclass = 'wfu_problema'
 
     title = '{}\n{}\n{}'.format(wifi['ip'], wifi['ip6'], wifi['mac'])
-    # wifi.mac_count
     content = "<img width=16 src=/static/img/wfu.png /><small>{}</small>".format(port.mac_count)
     return __set_switches_view_data(cssclass=cssclass, title=title, content=content, maincss=maincss)
 
@@ -189,7 +189,7 @@ def _format_surveillance(port, surv):
     # this is a specific thing that should put in another place
     if not port or not surv:
         return __set_switches_view_data()
-    maincss = cssclass = title = content = ''
+    maincss = cssclass = ''
 
     if port.pvid != 55:
         cssclass = 'wfu_problema'
@@ -202,7 +202,7 @@ def _format_surveillance(port, surv):
 def _format_use(port):
     if not port:
         return __set_switches_view_data()
-    maincss = maintitle = content = ''
+    maincss = maintitle = ''
     cssclass = 'port'
     if port.admin != 2 and port.oct_in == 0 and port.oct_out == 0:
         maintitle = 'No traffic seen until now'
@@ -213,7 +213,7 @@ def _format_use(port):
     slash_index = port.name.rfind('/')
     if slash_index != -1:
         # Example: GigabitEthernet1/0/12; Ethernet1/0/15 -- 3Com, HP
-        content = port.name[0] + port.name[(slash_index+1):][:3]
+        content = port.name[0] + port.name[(slash_index + 1):][:3]
     elif len(port.name) > 3:
         # Example: Port 27 -- DLink; Ethernet interface (rolling my eyes) -> should move this to a per switch class
         # if the last two digit isn't a number, take the port number as a reference.
@@ -228,7 +228,8 @@ def _format_use(port):
     else:
         # some HPN multi slot switches: A3, B24
         content = port.name
-    return __set_switches_view_data(cssclass=cssclass, content=content, maintitle=maintitle, maincss=maincss, inline=True)
+    return __set_switches_view_data(cssclass=cssclass, content=content, maintitle=maintitle, maincss=maincss,
+                                    inline=True)
 
 
 # Our View starts here.
@@ -281,8 +282,8 @@ def switches_list(request):
         ports_rendered = []
         for switch_port in switch_ports:
             # TODO: think if there is a better approach to this.
-            _stp = _format_stp(switch_port, switch)
             _lldp = _format_lldp(switch_port, lldps_mac[switch_port.port]) if switch_port.port in lldps_mac else None
+            _stp = _format_stp(switch_port, switch)
             _port = _format_port(switch_port, mac_ip)
             _poe = _format_poe(switch_port)
             _vlan = _format_vlan(switch_port)
@@ -302,7 +303,97 @@ def switches_list(request):
                 _printer = _format_printer(switch_port, printer)
                 _surv = _format_surveillance(switch_port, surveillance)
 
-            ports_rendered += [(_use, _lldp, _stp, _port, _poe, _vlan, _voip, _printer, _wifi, _surv, _count),]
+            ports_rendered += [(_use, _lldp, _stp, _port, _poe, _vlan, _voip, _printer, _wifi, _surv, _count), ]
         switch.ports_rendered = ports_rendered
 
-    return render(request, 'switches_list.html', {'switches': switches,})
+    return render(request, 'switches_list.html', {'switches': switches, })
+
+
+def help_switches_list(request):
+    switches = []
+    data = [{'name': 'Absent', 'poe_admin': -1},
+            {'name': 'Disabled', 'poe_admin': 2},
+            {'name': 'On', 'poe_admin': 1, 'poe_mpower': 4300, },
+            {'name': 'Off', 'poe_admin': 1, 'poe_mpower': 0, },
+            ]
+    ports_rendered = []
+    for v in data:
+        v = namedtuple("Port", v.keys())(*v.values())
+        u = _format_poe(v)
+        ports_rendered += [({'content': v.name}, u,)]
+    switch = {'name': 'POE ports', 'ports_rendered': ports_rendered}
+    switches += [switch]
+
+    data = [{'name': 'Access port', 'pvid': '10', 'port_untagged': '10', 'port_tagged': ''},
+            {'name': 'Tag + untag vlans', 'pvid': '1', 'port_untagged': '10', 'port_tagged': '2, 4'},
+            {'name': 'Tagged vlans', 'pvid': '1', 'port_untagged': '', 'port_tagged': '2, 4, 6'},
+            {'name': 'Too many tagged to show', 'pvid': '10', 'port_untagged': '',
+             'port_tagged': '2, 4, 6, 8, 10, 12, 20, 40, 100, 120, 150, 180, 200, 220'},
+            ]
+    ports_rendered = []
+    for v in data:
+        v = namedtuple("Port", v.keys())(*v.values())
+        u = _format_vlan(v)
+        ports_rendered += [({'content': v.name}, u,)]
+    switch = {'name': 'VLANs,\n1st number is\npvid', 'ports_rendered': ports_rendered}
+    switches += [switch]
+
+    data = [{'name': 'Shutdown', 'oper': 1, 'admin': 2, 'speed': 100, 'mac_ip': [], 'alias': '1/0/1'},
+            {'name': '10 Half duplex', 'oper': 1, 'admin': 1, 'duplex': 2, 'speed': 10, 'mac_ip': [], 'alias': '1/0/2'},
+            {'name': '100 half duplex', 'oper': 1, 'admin': 1, 'duplex': 2, 'speed': 100, 'mac_ip': [], 'alias': '1/0/3'},
+            {'name': '10 Mpbs', 'oper': 1, 'duplex': 1, 'admin': 1, 'speed': 10, 'mac_ip': [], 'alias': '1/0/4'},
+            {'name': '100 Mpbs', 'oper': 1, 'duplex': 1, 'admin': 1, 'speed': 100, 'mac_ip': [], 'alias': '1/0/5'},
+            {'name': 'gigabit', 'oper': 1, 'duplex': 1, 'admin': 1, 'speed': 1000, 'mac_ip': [], 'alias': '1/0/6'},
+            ]
+    ports_rendered = []
+    for v in data:
+        v2 = namedtuple("Port", v.keys())(*v.values())
+        v['mac_ip'] = []
+        u = _format_port(v2, v['mac_ip'])
+        ports_rendered += [({'content': v['name']}, u,)]
+    switch = {'name': 'Speed', 'ports_rendered': ports_rendered}
+    switches += [switch]
+
+    o = Switches()
+    o.stp_root = 1
+    data = [{'name': 'STP Root', 'port': 1, 'oper': 1, 'admin': 1, 'stp_state': 1},
+            {'name': 'STP block', 'port': 2, 'oper': 1, 'admin': 1, 'stp_state': 2, 'stp_admin': 1},
+            {'name': 'STP disabled', 'port': 3, 'oper': 1, 'admin': 2, 'stp_state': 2, 'stp_admin': 2},
+            ]
+    ports_rendered = []
+    for v in data:
+        v = namedtuple("Port", v.keys())(*v.values())
+        u = _format_stp(v, o)
+        ports_rendered += [({'content': v.name}, u,)]
+    switch = {'name': 'STP', 'ports_rendered': ports_rendered}
+    switches += [switch]
+
+    lldp = {'omac': '00:01:02:03:04:05', 'oname': 'Next Neighbor'}
+    o = Switches()
+    o.stp_root = 1
+    data = [{'name': 'Neighbor', 'port': 2, 'switch': o, 'stp_admin': 1},
+            # {'name': 'Neighbor + block', 'port': 3, 'switch': o, 'stp_admin': 2},
+            # {'name': 'Neighbor + stp root', 'port': 1, 'switch': o, 'stp_admin': 1},
+            ]
+    ports_rendered = []
+    for v in data:
+        v2 = namedtuple("Port", v.keys())(*v.values())
+        u = _format_lldp(v2, lldp)
+        ports_rendered += [({'content': v2.name}, u,)]
+    switch = {'name': 'LLDP (usually merged with STP)', 'ports_rendered': ports_rendered}
+    switches += [switch]
+
+    data = [{'name': 'With traffic', 'port': 3, 'admin': 2, 'oct_in': 0, 'oct_out': 0},
+            {'name': 'without traffic', 'port': 4, 'admin': 1, 'oct_in': 0, 'oct_out': 0},
+            {'name': 'Port name 1/0/1', 'port': 5, 'admin': 1, 'oct_in': 3454, 'oct_out': 345},
+            {'name': 'generic name, use port number', 'port': 6, 'admin': 1, 'oct_in': 1458, 'oct_out': 110},
+            ]
+    ports_rendered = []
+    for v in data:
+        v2 = namedtuple("Port", v.keys())(*v.values())
+        u = _format_use(v2)
+        ports_rendered += [({'content': v['name']}, u,)]
+    switch = {'name': 'How Port is used / port name', 'ports_rendered': ports_rendered}
+    switches += [switch]
+
+    return render(request, 'help_switch_list.html', {'switches': switches, })
