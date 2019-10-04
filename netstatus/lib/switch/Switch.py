@@ -37,8 +37,6 @@ from .switchlib import *
         _oids_ifexists_intvlan
             .1.3.6.1.4.1.43.45.1.2.23.1.2.1.1.1.7'  # 1/2 = true/false for each vlan
 """
-# todo: change this to a configuration file / table
-SWITCH_MANAGED_VLAN = 20
 
 
 class Switch:
@@ -56,25 +54,12 @@ class Switch:
         'mac':      '.1.3.6.1.2.1.17.1.1.0',
         'stp':      '.1.3.6.1.2.1.17.2.7.0',
     }
-    # _fab_var is added to the end of _oids_fab. Sometimes, we don't need to change all the OIDs,
-    # just the last part where this switch model stores some of its data.
-    _fab_var = '2'
     _oids_fab = {
         'physical':     '.1.3.6.1.2.1.47.1.1.1.1.7.',   # entPhysicalName
         'soft_version': '.1.3.6.1.2.1.47.1.1.1.1.10.',  # software version
         'serial':       '.1.3.6.1.2.1.47.1.1.1.1.11.',  # serial number
         'vendor':       '.1.3.6.1.2.1.47.1.1.1.1.12.',  # manufacturer / vendor #  entPhysicalMfgName
         'model':        '.1.3.6.1.2.1.47.1.1.1.1.13.',  # model
-    }
-    _oids_vlans = {
-        'vlans':    '.1.3.6.1.4.1.43.45.1.2.23.1.2.1.1.1.1',
-        'tagged':   '.1.3.6.1.4.1.43.45.1.2.23.1.2.1.1.1.17',
-        'untagged': '.1.3.6.1.4.1.43.45.1.2.23.1.2.1.1.1.18',
-    }
-    _oids_poe = {
-        'poeadmin': '.1.3.6.1.2.1.105.1.1.1.',
-        'poempower': '.1.3.6.1.4.1.43.45.1.10.2.14.1.1.3',
-        'poesuffix': '1',
     }
     management_vlan = Settings.MANAGEMENT_VLAN
     _map_baseport_ifindex = {}
@@ -85,7 +70,18 @@ class Switch:
 
     def __init__(self, host, community='public', version=2):
         # default for 3Com / HP (HPN)
-        self._mask = mask_bigendian
+        # self._mask = mask_bigendian
+        self._oids_vlans = {
+            'vlans':    '.1.3.6.1.4.1.43.45.1.2.23.1.2.1.1.1.1',
+            'tagged':   '.1.3.6.1.4.1.43.45.1.2.23.1.2.1.1.1.17',
+            'untagged': '.1.3.6.1.4.1.43.45.1.2.23.1.2.1.1.1.18',
+        }
+        self._oids_poe = {
+            'poeadmin': '.1.3.6.1.2.1.105.1.1.1',
+            'poempower': '.1.3.6.1.4.1.43.45.1.10.2.14.1.1.3.1',
+            'poesuffix': '.1',
+        }
+        self._mask = mask_littleendian
         self.comunidadew = 'private'
         self.ip = ''  # future: get it from interface vlan
         self.portas = {}
@@ -106,6 +102,9 @@ class Switch:
         self.physical = ''
         self.mac = ''
         self.stp = 0
+        # _fab_var is added to the end of _oids_fab. Sometimes, we don't need to change all the OIDs,
+        # just the last part where this switch model stores some of its data.
+        self._fab_var = '2'
 
         if not host:
             return
@@ -144,6 +143,7 @@ class Switch:
         self.sessaow.start()
 
     def _map_bport_ifidx(self, port):
+        port = int(port)
         return self._map_baseport_ifindex[port] if port in self._map_baseport_ifindex else port
 
     def map_baseport(self):
@@ -197,7 +197,10 @@ class Switch:
         self.get_mac_list()
         logging.debug(('-- mac list: ', *self.macs))
 
-    # mapa de vlans tagged (egress) e untagged. O mapa usa basePort como referência
+    def _vlans_list(self):
+        """ Safe method for several types. However, for some models we may change that (get values from netsnmp.VALUE) """
+        return tuple(sorted([v[netsnmp.OID].split('.')[-1] for v in self.sessao.walk(self._oids_vlans['vlans'])]))
+
     def get_vlans(self):
         """
         Get Egress (or Tagged) and Untagged vlans from switch as dictionaries.
@@ -208,34 +211,27 @@ class Switch:
         request. Huawei switches store all possible vlans, even if not created, so we need to filter out that too.
         :return: set tagged and untagged vlans as dictionary vlan (key) = tuple(integer,)
         """
-        self.vlans = tuple(sorted([v[netsnmp.OID].split('.')[-1] for v in self.sessao.walk(self._oids_vlans['vlans'])]))
+        self._vlans_index = {v[netsnmp.OID].split('.')[-1]:v[netsnmp.VALUE] for v in self.sessao.walk(self._oids_vlans['vlans'])}
+        self.vlans = tuple(sorted(self._vlans_index.values()))
+        logging.debug(('-- vlans_index: ', self._vlans_index))
+        logging.debug(('-- vlans: ', self.vlans))
         self.vtagged = {}
         self.vuntagged = {}
-
-        logging.debug('-- VLANS: ' + ','.join(self.vlans))
         """
         Vlans are represented as a byte string where the bit position means the port.
         This will be converted to a dictionary where key = vlan number  and  value is a tuple with ports as integer
         Filters out vlans not created.
         Be careful with lots of GET message in the same request. If the response becomes too big, SNMP server returns
         error to us.
-        x = temp; helps creating the OIDs for each VLAN
-        y = OID 
-        z = dictionary, last OID part = Value cleaned
-        k = VLAN number
-        v = hex string (bytes = 2 char separated by spaces). Each bit represents a port
-        w = a 'v' part converted to integer.
         """
-        self.vtagged = {
-            k: tuple(int(w, 16) for w in v.strip().replace('\n', '').split(' '))
-            for z in (snmp_values_dict(self.sessao.get(y)) for y in
-                      [self._oids_vlans['tagged'] + '.' + x for x in self.vlans]) for k, v in z.items()
-        }
-        self.vuntagged = {
-            k: tuple(int(w, 16) for w in v.strip().replace('\n', '').split(' '))
-            for z in (snmp_values_dict(self.sessao.get(y)) for y in
-                      [self._oids_vlans['untagged'] + '.' + x for x in self.vlans]) for k, v in z.items()
-        }
+        for x in self._vlans_index.keys():
+            oid = '{}.{}'.format(self._oids_vlans['tagged'], x)
+            y = snmp_values(self.sessao.get(oid))[0]
+            self.vtagged[self._vlans_index[x]] = tuple(int(w, 16) for w in y.strip().replace('\n', '').split(' '))
+
+            oid = '{}.{}'.format(self._oids_vlans['untagged'], x)
+            y = snmp_values(self.sessao.get(oid))[0]
+            self.vuntagged[self._vlans_index[x]] = tuple(int(w, 16) for w in y.strip().replace('\n', '').split(' '))
 
     def _vlans_ports(self, port):  # , pvid):
         """
@@ -285,10 +281,11 @@ class Switch:
     def _snmp_ports_stp(self, port):
         port = str(port)
         oidlist = [v + port for v in self._oids_stp]
-        ret = []
-        for i in oidlist:
-            ret += self.sessao.get(i)
-        return ret
+        # ret = []
+        # for i in oidlist:
+        #     ret += self.sessao.get(i)
+        # return ret
+        return self.sessao.get(oidlist)
 
     # Data: INTEGER {vLANTrunk(1), access(2), hybrid(3), fabric(4)}
     _ifVLANType = '.1.3.6.1.4.1.43.45.1.2.23.1.1.1.1.5'
@@ -301,12 +298,20 @@ class Switch:
             ret += self.sessao.get(i)
         return ret
 
+    def _oid_mpoe(self, port):
+        """ Return OID for power power consume, vendor dependent.  """
+        return ['{}.{}'.format(self._oids_poe['poempower'], port)]
+
     # poe_admin poe_status poe_class   poe_mpower
     def _oid_poe(self, port):
-        port = str(port)
-        return [self._oids_poe['poeadmin'] + v + '.' + self._oids_poe['poesuffix'] + '.' + port for v in
-                ('3', '6', '10')] \
-               + [self._oids_poe['poempower'] + '.' + self._oids_poe['poesuffix'] + '.' + port]
+        """
+        Return OID poe administration, in the following order:
+        hwPoePortEnable, hwPoePortPowerOnStatus, hwPoePortPdClass
+        :param port: the port we wish consult the POE state. OIDs depend upon that to be created.
+        :return: list with POE OIDs for SNMP
+        """
+        return ['{}.{}{}.{}'.format(self._oids_poe['poeadmin'], v, self._oids_poe['poesuffix'], port) for v in
+                ('3', '6', '10')] 
 
     def _snmp_ports_poe(self, port):
         """
@@ -316,7 +321,8 @@ class Switch:
         :param port: switch port, as string
         :return:
         """
-        oidlist = self._oid_poe(port)
+        oidlist = self._oid_poe(port) + self._oid_mpoe(port)
+        logging.debug(('-- POE OIDs: ', oidlist, self._oids_poe))
         return self.sessao.get(oidlist)
 
     # Testa se a port é uma Interface VLAN
@@ -343,11 +349,13 @@ class Switch:
         # avoids calling get_port_ether() for non ethernet type.
         oid_iftype = '.1.3.6.1.2.1.2.2.1.3'
         for (_oid, _type, _value) in self.sessao.walk(oid_iftype):
-            porta = int(_oid[(len(oid_iftype) + 1):])
+            #port = self._map_bport_ifidx(int(_oid[(len(oid_iftype) + 1):]))
+            port = int(_oid[(len(oid_iftype) + 1):])
             iftype = int(_value)
 
             if self._is_port_ether(iftype):  # and port in self._map_baseport_ifindex:
-                self.portas[porta] = self.get_port_ether(porta)
+                # self.portas[port] = self.get_port_ether(port)
+                self.portas[self._map_bport_ifidx(port)] = self.get_port_ether(port)
 
     _oids_intvlan = (
         '.1.3.6.1.4.1.43.45.1.2.23.1.2.1.2.1.3',  # hwdot1qVlanIpAddress - "IP address of interface."
@@ -415,7 +423,7 @@ class Switch:
         vuntag = []
         # 2 = port access, vtag and vuntag are not applicable.
         if vtype != '2':
-            vtag, vuntag = self._vlans_ports(porta)
+            vtag, vuntag = self._vlans_ports(self._map_bport_ifidx(porta))
             if len(vtag) > 4090:  # probably trunking port with 'permit vlan all' and all vlans created.
                 vtag = [4095, ]
 

@@ -29,7 +29,8 @@ class SwitchFactory:
         """
         logging.debug("FACTORY: host: {}, comunidade: {}".format(host, community))
         try:
-            if host is str:
+            # if host is str:
+            if isinstance(host, str):
                 snmp_con = SNMP(host, community)
                 snmp_con.start()
             else:

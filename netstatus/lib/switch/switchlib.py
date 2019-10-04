@@ -22,7 +22,8 @@ def snmp_values_dict(values):
     return {v[netsnmp.OID].split('.')[-1]: v[netsnmp.VALUE].replace('"', '') for v in values}
 
 
-def mask_bigendian(nport):
+# def mask_bigendian(nport):
+def mask_littleendian(nport):
     """ get port from portlist (qbridge) through big endian mask. 3Com / HP use this.
     Set self.mask to call this.
     QBridge - Portlist. The RFC 2674 says the most significant bit, but don't force the bit order.
@@ -30,8 +31,11 @@ def mask_bigendian(nport):
     return 1 << (nport % 8)
 
 
-def mask_littleendian(nport):
-    """ get port from portlist (qbridge) through little endian mask. D-Link / new HP use this.
+# def mask_littleendian(nport):
+def mask_bigendian(nport):
+    """ get port from portlist (qbridge) through little endian mask. 
+    D-Link / new HP / Extreme XOS use this.
+    "the least significant bit represents the highest numbered port"
     Set self.mask to call this.
     """
     return 128 >> (nport % 8)

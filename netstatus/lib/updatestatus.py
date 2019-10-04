@@ -3,12 +3,14 @@ import time
 import logging
 from threading import Thread, Lock
 
-from django.db import IntegrityError, DataError, connection
+from django.db import IntegrityError, DataError, connection, connections
 from django.utils import timezone
 
 from netstatus.lib.switchfactory import SwitchFactory
 from netstatus.models import Switches, SwitchesNeighbors, Mac, SwitchesPorts
 from netstatus.settings import Settings
+from netstatus.lib.switch import switchlib
+
 
 IP_CORE = ''
 switches_list = {}
@@ -34,7 +36,8 @@ def redirect_stderr(f):
     def new_f(*args, **kwargs):
         printed = WritableObject()
         sys.stderr = printed
-        # logging.basicConfig(level=logging.DEBUG)
+        if Settings.DEBUG:
+            logging.basicConfig(level=logging.DEBUG)
         logging.StreamHandler(printed)
         f(*args, **kwargs)
         sys.stderr = sys.__stdout__
@@ -84,7 +87,7 @@ def _switch_status(rows, dryrun):
     :param dryrun: for testing. Avoid saving into database after every step.
     :return: empty string. The main information is yielded for the StreamHttpResponse()
     """
-    logging.debug('##>>> switch_status: rows={}'.format(rows))
+    logging.debug('##>>> switch_status: rows={}, dryrun={}'.format(rows, dryrun))
     global IP_CORE
     global switches_list
     switches_list = {}
@@ -102,27 +105,34 @@ def _switch_status(rows, dryrun):
         for t in othreads:
             t.join()
     except Exception as e:
-        print('%% Error After threads: {}'.format(e), file=sys.stderr)
+        print('%% Error After threads: {}'.format(e), file=sys.stderr, end='')
 
-    s_core = switches_list[IP_CORE] if IP_CORE else None
+    s_core = switches_list[IP_CORE] if IP_CORE and IP_CORE in switches_list else None
     diff = (len(rows) - len(switches_list))
     res = 'ok' if diff == 0 else 'problems'
     host_problems = [i[0] for i in rows if i[0] not in switches_list] if diff != 0 else []
     print("-- ### Total (switches, switch_list, diff) = ({}, {}, {}) => {}, core={}\nproblems = {}".
-          format(len(rows), len(switches_list), diff, res, s_core, host_problems), file=sys.stderr)
+          format(len(rows), len(switches_list), diff, res, s_core, host_problems), file=sys.stderr, end='')
 
     # todo: remove it in future versions after test.
     for o in switches_list.values():
         if o is None:
-            print('-- switch is none. skipping...')
+            print('-- switch is none. skipping...', file=sys.stderr, end='')
             continue
         try:
-            switch = Switches.objects.get(mac=o.board['mac'])
+            switch = Switches.objects.get(mac=o.mac)
         except Switches.DoesNotExist as e:
-            print("###### error: switch was not found in database. mac={}".format(o.board['mac']))
+            print("###### error: switch was not found in database. mac={}".format(o.mac), file=sys.stderr, end='')
             switch = Switches()
-        print('##>>> Switch ID={}, serial_number={}, name={}, mac={}, ip="{}", totaltime={}'.format(
-            switch.id, switch.serial_number, switch.name, switch.mac, o.host, o.totaltime), file=sys.stderr, end='')
+
+        print('##>>> Switch ID={}, serial_number={}, name={}, alias={}, mac={}, ip="{}", totaltime={}; vendor={},\n'
+              '\t\tclass={}, len(ports)={}'.format(
+              switch.id, switch.serial_number, switch.name, switch.alias, switch.mac, o.host, o.totaltime, o.vendor,
+              o.__class__.__name__, len(o.portas)), 
+              file=sys.stderr, end='')
+
+        print('##\t\t oid_poe_admin = {}'.format(o._oid_poe('1')[0]), file=sys.stderr, end='')
+
         # the switch should be unique in the database, based on mac / serial_number.
         # But it may be relocated and have name and IP changed. So, apply those changes to the database.
         switch.name          = o.name
@@ -135,6 +145,7 @@ def _switch_status(rows, dryrun):
         switch.soft_version  = o.soft_version
         switch.stp_root      = o.stp
         switch.community_ro  = o.comunidade
+        # logging.debug('##>>> switchs: ({}, {}, {}, model={}, serial={}, vendor={}, ver={}, stp={})'.format(o.name, o.mac, o.host, o.model, o.serial, o.vendor, o.soft_version, o.stp))
 
         try:
             switch.alias = Settings.SWITCH_ALIAS(o.name) if Settings.SWITCH_ALIAS else o.name[:6]
@@ -152,10 +163,16 @@ def _switch_status(rows, dryrun):
                 import pprint
                 print("##>>> Switch already is present in db but not found when you looked for it.\n"
                       "{}\n id={}, mac={}, mac2={}".
-                      format(e,  switch.id, switch.mac, o.board['mac']))
+                      format(e,  switch.id, switch.mac, o.mac))
                 pp = pprint.PrettyPrinter(indent=4)
                 pp.pprint(connection.queries[-3:])
                 continue
+
+        sp = o.portas[1]
+        print('##\t\t{}, {}, {}, admin={}, oper={}, stp_admin={}, poe_admin={}; poe_mpower={}, pvid={}'.format(
+              1, sp['nome'][:30], sp['speed'], sp['admin'], sp['oper'], sp['stp_admin'], 
+              sp['poe_admin'], sp['poe_mpower'], sp['pvid']), 
+              file=sys.stderr, end='')
 
         # this check is just to avoid deleting ports associate to this switch. Not a big deal, though, but
         # our database should store significant changes onto switches_ports and feed the *_log tables with previous
@@ -185,16 +202,19 @@ def _switch_status(rows, dryrun):
             sp.poe_mpower = pdata['poe_mpower']
             sp.mac_count = 0
             sp.pvid = pdata['pvid']
-            sp.port_tagged = pdata['tagged']
-            sp.port_untagged = pdata['untagged']
+            sp.port_tagged = ', '.join(pdata['tagged'])
+            sp.port_untagged = ', '.join(pdata['untagged'])
             sp.data = now()
             sp.name = pdata['nome'][0:30]
             sp.alias = pdata['alias'][0:80]
+            #print('##>>> ... ... {}, {}, {}, admin={}, oper={}, stp_admin={}, poe_admin={}; poe_mpower={}, pvid={}'.format(
+            #      port, sp.name, sp.speed, sp.admin, sp.oper, sp.stp_admin, sp.poe_admin, sp.poe_mpower, sp.pvid), 
+            #      file=sys.stderr, end='')
             if not dryrun:
                 try:
                     sp.save()
                 except IntegrityError as e:
-                    print("##>>>  Error saving port {}: {}".format(sp.port, e))
+                    print("##>>>  Error saving port {}: {}".format(sp.port, e), file=sys.stderr, end='')
 
         SwitchesNeighbors.objects.filter(mac1=switch.mac).delete()
         for lport in o.uplink:
@@ -220,14 +240,15 @@ def _switch_status(rows, dryrun):
                 try:
                     m.save()
                 except Exception as e:
-                    print("#>>> error saving mac: {}".format(e))
+                    print("#>>> error saving mac: {}".format(e), file=sys.stderr, end='')
 
     # updating the mac_count field in SwitchesPorts is much easier through database.
     if not dryrun:
-        SwitchesPorts.objects.raw("UPDATE switches_ports SET mac_count=(select count(*) from mac where "
-                                  "mac.switch=switches_ports.switch and mac.port=switches_ports.port)")
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE switches_ports SET mac_count=(select count(*) from mac where "
+                           "mac.switch=switches_ports.switch and mac.port=switches_ports.port)")
     endtime = time.perf_counter() - start
-    print("-- *** Execution total time: %5.01f s" % endtime, file=sys.stderr)
+    print("-- *** Execution total time: %5.01f s" % endtime, file=sys.stderr, end='')
     return
 
 
@@ -242,6 +263,7 @@ def _load_host(host, community, switchid):
     """
     global switches_list
     global IP_CORE
+    global lock 
     obj = SwitchFactory().factory(host, community)
     if not obj:
         return 1
@@ -251,22 +273,22 @@ def _load_host(host, community, switchid):
         obj.load()
     except Exception as e:
         import traceback
-        print("-- %% _load_host(): host {} got exception in load(): {}\n----- Trace: {}".
-              format(host, e, traceback.print_exc()), file=sys.stderr)
+        logging.debug("-- %% _load_host(): host {} got exception in load(): {}\n----- Trace: {}".
+                      format(host, e, traceback.print_exc()))
         return 2
     try:
         # if stp_root (main / sole switch), then try to get the IP-MAC relation
-        if obj.board['stp'] == 0:
+        if obj.stp == 0:
             obj.get_ip_mac()
             IP_CORE = host
-            print('-- %% found core: {}'.format(host))
+            logging.debug('-- %% found core: {}'.format(host))
         obj.totaltime = "%3.01f s" % (time.perf_counter() - start1)
     except Exception as e:
-        print("-- %% _load_host: host {} error getting assessing some data: {}".format(host, e), file=sys.stderr)
+        logging.debug("-- %% _load_host: host {} error getting assessing some data: {}".format(host, e))
         return 2
 
     if not lock.acquire(timeout=30):
-        print("-- %% host {} was locked out and couldn't be inserted back into list. ".format(host), file=sys.stderr)
+        logging.debug("-- %% host {} was locked out and couldn't be inserted back into list. ".format(host))
         return 3
     switches_list[host] = obj
     lock.release()

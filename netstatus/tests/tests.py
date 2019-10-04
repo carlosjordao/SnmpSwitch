@@ -67,6 +67,11 @@ class TestSwitch(unittest.TestCase):
         switch = SwitchFactory._type(descr, Switch.Switch)
         self.assertEqual(switch.__name__, 'Switch3Com4500G')
 
+        descr = 'ExtremeXOS (X440-24p-10G) version 15.3.1.4 v1531b4-patch1-19 by release-manager on Fri Sep 20 14:57:37 EDT 2013'
+        switch = SwitchFactory._type(descr, Switch.Switch)
+        self.assertEqual(switch.__name__, 'SwitchExtremeX440')
+
+
     def test_vlans_hh3c(self):
         switch = SwitchHH3C('')
         switch.vlans = ('1', '2', '20', '77')
@@ -118,7 +123,7 @@ class TestSwitchLoad(unittest.TestCase):
         session = PseudoSnmp('HPE-JG977A.snmpwalk')
         session.start()
         # check using basic snmp function used by factory
-        self.assertEqual(session.get('.1.3.6.1.2.1.1.5.0'), [('.1.3.6.1.2.1.1.5.0', 'STRING', '"SWD-XXXXX-59"')])
+        # self.assertEqual(session.get('.1.3.6.1.2.1.1.5.0'), [('.1.3.6.1.2.1.1.5.0', 'STRING', '"SWD-XXXXX-59"')])
 
         switch = SwitchFactory.factory(host=session)
         # this is a important check. Wrong classes will mess up everything
@@ -139,7 +144,7 @@ class TestSwitchLoad(unittest.TestCase):
         self.assertEqual(switch.descr, 'HPE Comware Platform Software, Software Version 7.1.070, Release '
                                        '3208P15\nHPE 5130 24G PoE+ 4SFP+ EI BR Switch\nCopyright (c) 2010-2018 '
                                        'Hewlett Packard Enterprise Development LP')
-        self.assertEqual(switch.name, 'SWD-XXXXX-59')
+        # self.assertEqual(switch.name, 'SWD-XXXXX-59')
 
         switch.get_vlans()
         self.assertEqual(switch.vlans, ('1', '2', '20', '77'))
@@ -360,6 +365,23 @@ class TestSwitchLoad(unittest.TestCase):
         for i in range(1, 29):
             self.assertEqual(switch._vlans_ports(i), check[i], 'failed vlans for port {}'.format(i))
 
+    @unittest.skipUnless(os.path.isfile(PseudoSnmp.path + '/' + 'Extreme-X440.snmpwalk'),
+                         'file Extreme-X440.snmpwalk not found')
+    def test_load_extreme_x440(self):
+        session = PseudoSnmp('Extreme-X440.snmpwalk')
+        session.start()
+        switch = SwitchFactory.factory(host=session)
+        switch.get_geral()
+        switch.get_vlans()
+        self.assertEqual(switch.vlans, ('1', '2', '20', '4095', '55', '77'))
+        print(switch.vtagged, switch.vuntagged)
+        switch.get_ports()
+        for k in switch.portas.keys():
+            i = switch.portas[k]
+            print(k, i['tagged'], i['untagged'], i['pvid'])
+                   
+
+ 
 
 if __name__ == '__main__':
     unittest.main()

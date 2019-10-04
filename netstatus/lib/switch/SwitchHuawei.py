@@ -29,32 +29,21 @@ class SwitchHuawei(Switch):
         self._fab_var = '1'
         self._oids_vlans = {
             # Using hwL2VlanDescr because it has a shorter list of VLANs, with the only one created in the switch
-            'vlans': '.1.3.6.1.4.1.2011.5.25.42.3.1.1.1.1.2',
-            'tagged': '.1.3.6.1.2.1.17.7.1.4.3.1.2',
+            'vlans':    '.1.3.6.1.4.1.2011.5.25.42.3.1.1.1.1.2',
+            'tagged':   '.1.3.6.1.2.1.17.7.1.4.3.1.2',
             'untagged': '.1.3.6.1.2.1.17.7.1.4.3.1.4',
         }
         self._oids_poe = {
-            'poeadmin': '1.3.6.1.4.1.2011.5.25.195.3.1.',
-            'poempower': '1.3.6.1.4.1.2011.5.25.195.3.1.10.',
+            'poeadmin':  '1.3.6.1.4.1.2011.5.25.195.3.1',
+            'poempower': '1.3.6.1.4.1.2011.5.25.195.3.1.10',
             'poesuffix': '',
         }
         # hwL2IfPortType
         self._ifVLANType = '.1.3.6.1.4.1.2011.5.25.42.1.1.1.3.1.3'
 
-    def get_fab(self):
-        super().get_fab()
-        self.board['modelo'] = self.board['descr'].split(' ')[0]
-
-    def _oid_poe(self, port):
-        """
-        Return a list with POE OIDs for this switch.
-        The OIDs are in the following order:
-        hwPoePortEnable, hwPoePortPowerOnStatus, hwPoePortPdClass, hwPoePortConsumingPower
-        :param port: the port we wish consult the POE state. OIDs depend upon that to be created.
-        :return: list with POE OIDs for SNMP
-        """
-        return [self._oids_poe['poeadmin'] + v + '.' + port for v in ('3', '6', '8')] + \
-               [self._oids_poe['poempower'] + port]
+    def get_geral(self):
+        super().get_geral()
+        self.model = self.descr.split(' ')[0]
 
     def _conv_poe_status(self, poe_status):
         """ Change on/off to 1/0. Used with POE settings. This issue is specific for the Huawei MIB. """
@@ -76,5 +65,5 @@ class SwitchHuaweiS5700(SwitchHuawei):
     def __init__(self, host, community='public', version=2):
         super().__init__(host, community, version)
         self._fab_var = '67108867'
-        # model OID: 1.3.6.1.4.1.2011.6.3.11.4
-        # self.map_baseport()
+
+

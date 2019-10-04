@@ -61,7 +61,8 @@ def _format_vlan(port):
     if port.pvid in __special_pvid:
         cssclass += " " + __special_pvid[port.pvid]
 
-    if port.pvid == port.port_untagged and tag == '':
+    if  (port.pvid == port.port_untagged and tag == '') or \
+        (port.port_tagged == '' and port.port_untagged == ''):
         content = '{}'.format(port.pvid)
         cssclass = ' tag_access'
         title = 'Access Port'
@@ -213,7 +214,10 @@ def _format_use(port):
     slash_index = port.name.rfind('/')
     if slash_index != -1:
         # Example: GigabitEthernet1/0/12; Ethernet1/0/15 -- 3Com, HP
-        content = port.name[0] + port.name[(slash_index + 1):][:3]
+        if port.name[0] in ('G', 'E'):
+            content = port.name[(slash_index + 1):][:3]
+        else:
+            content = port.name[0] + port.name[(slash_index + 1):][:3]
     elif len(port.name) > 3:
         # Example: Port 27 -- DLink; Ethernet interface (rolling my eyes) -> should move this to a per switch class
         # if the last two digit isn't a number, take the port number as a reference.

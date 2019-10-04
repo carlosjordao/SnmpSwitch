@@ -1,4 +1,4 @@
-from .switchlib import mask_littleendian
+from .switchlib import mask_bigendian
 from .Switch import Switch
 
 
@@ -22,15 +22,14 @@ class SwitchHH3C(Switch):
     def __init__(self, host, community='public', version=2):
         super().__init__(host, community, version)
         self._oids_vlans = {
-            # 'vlans':    '.1.3.6.1.4.1.25506.8.35.2.1.1.1.1',       # hh3cdot1qVlanIndex
-            'vlans': '.1.3.6.1.2.1.17.7.1.4.2.1.3',                 # IETF  dot1qVlanFdbId
+            'vlans':    '.1.3.6.1.4.1.25506.8.35.2.1.1.1.1',       # hh3cdot1qVlanIndex
             'tagged':   '.1.3.6.1.4.1.25506.8.35.2.1.1.1.17',
             'untagged': '.1.3.6.1.4.1.25506.8.35.2.1.1.1.18',
         }
         self._oids_poe = {
-            'poeadmin':  '.1.3.6.1.2.1.105.1.1.1.',
+            'poeadmin':  '.1.3.6.1.2.1.105.1.1.1',
             'poempower': '.1.3.6.1.4.1.25506.2.14.1.1.3',
-            'poesuffix': '4',
+            'poesuffix': '.4',
         }
         self._ifVLANType = '.1.3.6.1.4.1.25506.8.35.1.1.1.5'  # hh3cifVLANType
         self._oids_ifexists_intvlan = '.1.3.6.1.4.1.25506.8.35.2.1.1.1.7'  # hh3cExistInterface
@@ -42,6 +41,10 @@ class SwitchHH3C(Switch):
         )
         # hh3cExistInterface, 1/2 = true/false for each vlan if there is int vlan
         self._oids_ifexists_intvlan = '.1.3.6.1.4.1.25506.8.35.2.1.1.1.7'
+
+    def _oid_mpoe(self, port):
+        return ['{}{}.{}'.format(self._oids_poe['poempower'], self._oids_poe['poesuffix'], port)]
+
 
 # -----------------
 
@@ -57,8 +60,7 @@ class SwitchHH3C_J9850A(SwitchHH3C):
 
     def __init__(self, host, community='public', version=2):
         super().__init__(host, community, version)
-        self._mask = mask_littleendian
-        self._oids_poe['poesuffix'] = '1'
+        self._mask = mask_bigendian
         self._fab_var = '1'
         self._oids_vlans = {
             'vlans':    '.1.3.6.1.2.1.17.7.1.4.2.1.3',    # IETF dot1qVlanCurrentEntry
@@ -84,5 +86,7 @@ class SwitchHH3C_V1910(SwitchHH3C):
 
     def __init__(self, host, community='public', version=2):
         super().__init__(host, community, version)
-        self._oids_poe['poesuffix'] = '1'
         self._fab_var = '1'
+        self._oids_poe['poesuffix'] = '.1'
+
+

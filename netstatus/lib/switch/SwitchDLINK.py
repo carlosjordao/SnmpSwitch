@@ -1,6 +1,6 @@
 import re
 
-from .switchlib import mask_littleendian
+from .switchlib import mask_bigendian
 from .Switch import Switch
 from .switchlib import *
 
@@ -23,18 +23,21 @@ class SwitchDLINK(Switch):
 
     def __init__(self, host, community='public', version=2):
         super().__init__(host, community, version)
-        self._mask = mask_littleendian
+        self._mask = mask_bigendian
         self._fab_var = '1'
         self._oids_vlans = {
-            'vlans': '.1.3.6.1.2.1.17.7.1.4.2.1.3',
-            'tagged': '.1.3.6.1.2.1.17.7.1.4.3.1.2',
+            'vlans':    '.1.3.6.1.2.1.17.7.1.4.2.1.3',
+            'tagged':   '.1.3.6.1.2.1.17.7.1.4.3.1.2',
             'untagged': '.1.3.6.1.2.1.17.7.1.4.3.1.4',
         }
         self._oids_poe = {
-            'poeadmin': '.1.3.6.1.4.1.171.12.24.3.1.1.2',
+            'poeadmin':  '.1.3.6.1.4.1.171.12.24.3.1.1.2',
             'poempower': '.1.3.6.1.4.1.171.12.24.4.1.1',
+            'poesuffix': '',
         }
         self._ifVLANType = '.1.3.6.1.2.1.17.7.1.4.3.1.4'
+        self._oids_ifexists_intvlan = '.1.3.6.1.4.1.171.11.{}.{}.3.2.1.3.1.1'.\
+                                      format(self._dlink_series, self._dlink_model)
         self._oids_intvlan = (
             # swL3IpCtrlIpAddr - "IP address of interface."
             '.1.3.6.1.4.1.171.11.{}.{}.3.2.1.3.1.3'.format(self._dlink_series, self._dlink_model),
@@ -43,15 +46,18 @@ class SwitchDLINK(Switch):
             # swL3IpCtrlAdminState - "Admin Status of VLAN virtual interfaces." (enable/disable, 1/2)
             '.1.3.6.1.4.1.171.11.{}.{}.3.2.1.3.1.9'.format(self._dlink_series, self._dlink_model),
         )
-        self._oids_ifexists_intvlan = '.1.3.6.1.4.1.171.11.{}.{}.3.2.1.3.1.1'.format(self._dlink_series,
-                                                                                     self._dlink_model)
 
-    # poe_admin poe_status poe_class   poe_mpower
-    #   swPoEPortCtrlState (1,2,3 = other, enable, disable)
-    #   swpoEPortInfoLedStatus (1,2,3 = on, off, error)
-    #   swPoEPortInfoClass
-    #   swPoEPortInfoPower
+    def _oid_mpoe(self, porta):
+        return []
+
     def _oid_poe(self, porta):
+        """
+            poe_admin poe_status poe_class   poe_mpower
+           swPoEPortCtrlState (1,2,3 = other, enable, disable)
+           swpoEPortInfoLedStatus (1,2,3 = on, off, error)
+           swPoEPortInfoClass
+           swPoEPortInfoPower
+        """
         return ['{}.{}'.format(self._oids_poe['poeadmin'], porta)] + \
                ['{}.{}.{}'.format(self._oids_poe['poempower'], v, porta) for v in ('7', '2', '3')]
 
