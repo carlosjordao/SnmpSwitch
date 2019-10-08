@@ -154,9 +154,10 @@ def _switch_status(rows, dryrun):
         if not dryrun:
             try:
                 switch.save()
-                Switches.objects.raw("UPDATE switches SET status='inactive_script' "
-                                     "WHERE status='active' AND ip='{0}' and serial_number <> '{1}'".\
-                                     format(switch.ip, switch.serial_number))
+                cursor = connection.cursor()
+                cursor.execute("UPDATE switches SET status='inactive_script' "
+                               "WHERE status='active' AND ip='{0}' and serial_number <> '{1}'".\
+                               format(switch.ip, switch.serial_number))
             except DataError as e:
                 print("##>>> Error saving switch {} ({}): {}".format(switch.id, switch.name, e))
                 print(connection.queries[-1])
