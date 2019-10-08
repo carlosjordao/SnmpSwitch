@@ -31,8 +31,8 @@ class SwitchExtremeX440(SwitchExtreme):
     def __init__(self, host, community='public', version=2):
         super().__init__(host, community, version)
         self._oids_vlans = {
-            'vlans': '.1.3.6.1.4.1.1916.1.2.1.2.1.10',
-            'tagged': '.1.3.6.1.4.1.1916.1.2.6.1.1.1',
+            'vlans':    '.1.3.6.1.4.1.1916.1.2.1.2.1.10',
+            'tagged':   '.1.3.6.1.4.1.1916.1.2.6.1.1.1',
             'untagged': '.1.3.6.1.4.1.1916.1.2.6.1.1.2',
         }
         self._oids_poe['poempower'] = '.1.3.6.1.4.1.1916.1.27.2.1.1.6.1'

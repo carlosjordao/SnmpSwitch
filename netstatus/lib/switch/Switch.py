@@ -276,18 +276,14 @@ class Switch:
 
     #       dot1dStpPortEnable                dot1dStpPortState,
     #       (1,2 = ena, disable)              (1=disabled, 2=blocking, 3=listening, 4=learning, 5=forwarding, 6=broken)
-    #               stp_admin                       stp_state                   stp_pvid (idx by dot1dBasePort)
+    #               stp_admin                       stp_state                   stp_pvid 
     _oids_stp = ('.1.3.6.1.2.1.17.2.15.1.4.', '.1.3.6.1.2.1.17.2.15.1.3.', '.1.3.6.1.2.1.17.7.1.4.5.1.1.')
 
     def _snmp_ports_stp(self, port):
+        """ all OIDs below are basePort index """
         port = str(self._map_bport_ifidx(int(port)))
-        # oidlist = [v + port for v in self._oids_stp]
         oidlist = [v + port for v in self._oids_stp]
         logging.debug(('-- STP OIDs :: ', oidlist))
-        #ret = []
-        #for i in oidlist:
-        #    ret += self.sessao.get(i)
-        #return ret
         return self.sessao.get(oidlist)
 
     # Data: INTEGER {vLANTrunk(1), access(2), hybrid(3), fabric(4)}
