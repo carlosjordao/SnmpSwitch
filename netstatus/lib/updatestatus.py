@@ -146,7 +146,6 @@ def _switch_status(rows, dryrun):
         switch.stp_root      = o.stp
         switch.community_ro  = o.comunidade
         # logging.debug('##>>> switchs: ({}, {}, {}, model={}, serial={}, vendor={}, ver={}, stp={})'.format(o.name, o.mac, o.host, o.model, o.serial, o.vendor, o.soft_version, o.stp))
-
         try:
             switch.alias = Settings.SWITCH_ALIAS(o.name) if Settings.SWITCH_ALIAS else o.name[:6]
         except TypeError:
@@ -155,6 +154,9 @@ def _switch_status(rows, dryrun):
         if not dryrun:
             try:
                 switch.save()
+                Switches.objects.raw("UPDATE switches SET status='inactive_script' "
+                                     "WHERE status='active' AND ip='{0}' and serial_number <> '{1}'".\
+                                     format(switch.ip, switch.serial_number))
             except DataError as e:
                 print("##>>> Error saving switch {} ({}): {}".format(switch.id, switch.name, e))
                 print(connection.queries[-1])
@@ -169,9 +171,10 @@ def _switch_status(rows, dryrun):
                 continue
 
         sp = o.portas[1]
-        print('##\t\t{}, {}, {}, admin={}, oper={}, stp_admin={}, poe_admin={}; poe_mpower={}, pvid={}'.format(
-              1, sp['nome'][:30], sp['speed'], sp['admin'], sp['oper'], sp['stp_admin'], 
-              sp['poe_admin'], sp['poe_mpower'], sp['pvid']), 
+        print('##\t\t{}, {}, {}, admin={}, oper={}, stp_admin={}, poe_admin={}; poe_mpower={}, pvid={}, '
+              'vtagged={}, vuntagged={}'.format(
+              1, sp['nome'][:30], sp['speed'], sp['admin'], sp['oper'], sp['stp_admin'], sp['poe_admin'], 
+              sp['poe_mpower'], sp['pvid'], ', '.join(sp['tagged']), ', '.join(sp['untagged'])), 
               file=sys.stderr, end='')
 
         # this check is just to avoid deleting ports associate to this switch. Not a big deal, though, but
