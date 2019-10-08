@@ -188,7 +188,7 @@ class Switch:
         logging.debug('-- self.vuntagged: ' + str(self.vuntagged))
 
         self.get_ports()
-        logging.debug('-- ports: ' + str(self.portas))
+        logging.debug(('-- ports: ', self.portas))
 
         self.get_lldp_neighbors()
         logging.debug(('-- after get_lldP_neighbor(): ', self.lldp))
@@ -199,7 +199,8 @@ class Switch:
 
     def _vlans_list(self):
         """ Safe method for several types. However, for some models we may change that (get values from netsnmp.VALUE) """
-        return tuple(sorted([v[netsnmp.OID].split('.')[-1] for v in self.sessao.walk(self._oids_vlans['vlans'])]))
+        # return tuple(sorted([v[netsnmp.OID].split('.')[-1] for v in self.sessao.walk(self._oids_vlans['vlans'])]))
+        return {v[netsnmp.OID].split('.')[-1]: v[netsnmp.VALUE] for v in self.sessao.walk(self._oids_vlans['vlans'])}
 
     def get_vlans(self):
         """
@@ -211,7 +212,7 @@ class Switch:
         request. Huawei switches store all possible vlans, even if not created, so we need to filter out that too.
         :return: set tagged and untagged vlans as dictionary vlan (key) = tuple(integer,)
         """
-        self._vlans_index = {v[netsnmp.OID].split('.')[-1]:v[netsnmp.VALUE] for v in self.sessao.walk(self._oids_vlans['vlans'])}
+        self._vlans_index = self._vlans_list()
         self.vlans = tuple(sorted(self._vlans_index.values()))
         logging.debug(('-- vlans_index: ', self._vlans_index))
         logging.debug(('-- vlans: ', self.vlans))
@@ -275,16 +276,18 @@ class Switch:
 
     #       dot1dStpPortEnable                dot1dStpPortState,
     #       (1,2 = ena, disable)              (1=disabled, 2=blocking, 3=listening, 4=learning, 5=forwarding, 6=broken)
-    #               stp_admin                       stp_state                   stp_pvid
+    #               stp_admin                       stp_state                   stp_pvid (idx by dot1dBasePort)
     _oids_stp = ('.1.3.6.1.2.1.17.2.15.1.4.', '.1.3.6.1.2.1.17.2.15.1.3.', '.1.3.6.1.2.1.17.7.1.4.5.1.1.')
 
     def _snmp_ports_stp(self, port):
-        port = str(port)
+        port = str(self._map_bport_ifidx(int(port)))
+        # oidlist = [v + port for v in self._oids_stp]
         oidlist = [v + port for v in self._oids_stp]
-        # ret = []
-        # for i in oidlist:
-        #     ret += self.sessao.get(i)
-        # return ret
+        logging.debug(('-- STP OIDs :: ', oidlist))
+        #ret = []
+        #for i in oidlist:
+        #    ret += self.sessao.get(i)
+        #return ret
         return self.sessao.get(oidlist)
 
     # Data: INTEGER {vLANTrunk(1), access(2), hybrid(3), fabric(4)}
@@ -376,14 +379,14 @@ class Switch:
                 continue
             self.intvlan[int(vlan)] = tuple(valores)
 
-    def get_port_ether(self, porta):
+    def get_port_ether(self, port):
         """
         Get internet / ethernet ports (not interface vlan or other types)
-        :param porta: must be int
+        :param port: must be int
         :return:
         """
         # some functions need this as integer, so we will do it only once.
-        i = str(porta)
+        i = str(port)
 
         # Order of OIDs:
         # ifdesc ifmtu ifspeed ifphys ifadmin ifoper iflast ifindis ifoutdis 
@@ -400,7 +403,7 @@ class Switch:
         ifinoct  = ifhcinoct if ifinoct < ifhcinoct else ifinoct
         ifoutoct = ifhcoutoct if ifoutoct < ifhcoutoct else ifoutoct
         # Specific things for each vendor / model. Uses separated methods for easier overload.
-        result = self._snmp_ports_stp(i)
+        result = self._snmp_ports_stp(i)  # uses dot1dBasePort
         result += self._snmp_ports_poe(i)
         result += self._snmp_ports_vtype(i)
         values = snmp_values(result, filter_=True)
@@ -423,11 +426,13 @@ class Switch:
         vuntag = []
         # 2 = port access, vtag and vuntag are not applicable.
         if vtype != '2':
-            vtag, vuntag = self._vlans_ports(self._map_bport_ifidx(porta))
+            vtag, vuntag = self._vlans_ports(self._map_bport_ifidx(port))
             if len(vtag) > 4090:  # probably trunking port with 'permit vlan all' and all vlans created.
                 vtag = [4095, ]
 
-        logging.debug('-- port {} ({}), vtag = "{}", vuntag = "{}"'.format(str(porta), str(ifdesc), vtag, vuntag))
+        logging.debug('-- port {} ({}), vtag = "{}", vuntag = "{}", pvid = {}, stp_admin = {}'
+                      '\n======================================='.format(
+                      str(port), str(ifdesc), vtag, vuntag, stp_pvid, stp_admin))
         return {
             'speed': ifspeedn,
             'duplex': int(ifduplex),

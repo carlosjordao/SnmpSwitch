@@ -1,5 +1,7 @@
 from .Switch import Switch
 
+import netsnmp
+
 
 class SwitchHuawei(Switch):
     """
@@ -48,6 +50,12 @@ class SwitchHuawei(Switch):
     def _conv_poe_status(self, poe_status):
         """ Change on/off to 1/0. Used with POE settings. This issue is specific for the Huawei MIB. """
         return 1 if poe_status == 'on' else 0
+
+    def _vlans_list(self):
+        """ Couldn't find an entry for index list of vlans. This OID will bring description instead, so we 
+        need to adapt the output to what we expect.
+        """
+        return {v[netsnmp.OID].split('.')[-1]: v[netsnmp.OID].split('.')[-1] for v in self.sessao.walk(self._oids_vlans['vlans'])}
 
 
 class SwitchHuaweiS5700(SwitchHuawei):
