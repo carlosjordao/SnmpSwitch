@@ -669,8 +669,7 @@ UNION
     max(mac_history.max_data) AS data
    FROM public.mac_history
   GROUP BY mac_history.mac, mac_history.switch, mac_history.port, mac_history.vlan, mac_history.ip
-  ORDER BY 1
-  WITH NO DATA;
+  ORDER BY 1;
 
 
 --
