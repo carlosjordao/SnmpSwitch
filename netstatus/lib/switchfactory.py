@@ -27,7 +27,7 @@ class SwitchFactory:
         :param version: 2. Only change this if you switch only supports SNMP version 1
         :return: new instance of Switch class/subclass
         """
-        logging.debug("FACTORY: host: {}, comunidade: {}".format(host, community))
+        logging.debug("FACTORY: host: {}, community: {}".format(host, community))
         try:
             # if host is str:
             if isinstance(host, str):
