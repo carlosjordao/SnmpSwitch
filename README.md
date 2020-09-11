@@ -1,5 +1,5 @@
 # ABOUT
-SnmpSwitch is a project aiming probing network devices, mainly switches but not exclusively, and gathering some data through SNMP connections.
+SnmpSwitch is a project aiming probing network devices, mainly switches but not exclusively, and gathering some data through SNMP connections with Python 3 and Django.
 
 Its objective is *not* do what other monitoring softwares do, like Zabbix and Nagios, which already do that very well. Instead, it's something about device configuration state management that can obtained through SNMP.
 
@@ -16,11 +16,16 @@ Use this software at your own risk.
 ![image2](https://i.imgur.com/AlOLTJM.png)
 
 # INSTALL
-  * Depends on: psycopg2, django, python 3, netsnmp-py
+  apt install python3 python3-psycopg2 pip libsnmp-dev libzmq3-dev libczmq-dev postgresql
+  pip3 install netstnmp-py django djangorestframework
+
+  * Depends on: psycopg2, django (and rest_framework module), python 3, netsnmp-py
   * netsnmp-py is installed through pip:
-    * install depends on packages (debian / ubuntu): libsnmp-dev, libzmq3-dev, libczmq-dev
-	pip install netstnmp-py
-  * postgresql server
+    * install depends on some packages (debian / ubuntu): libsnmp-dev, libzmq3-dev, libczmq-dev
+        * they should be installed manually before attempting to install netsnmp-py
+  * postgresql server (remember to configure pg_hba.conf)
+
+  * look after SnmpSwitch/settings.py for database and other configurations (put your server name/IP on ALLOW_HOSTS)
 
   * This software uses PostgreSQL as there are functions, procedures and rules to spice some things.
   * create a database called "snmpswitch" and use the snmpswitch.sql to create tables and other structures.
@@ -32,7 +37,15 @@ Use this software at your own risk.
 
 
 # USE
-  * after inserting all switches you want, you should see them on 'Network Status' link
+  1. use: python3 manage.py migrate
+	* this will connect and create the database tables for you. You only need to create beforehand the database.
+  2. after that, add some extra tables, functions and rules to postgres. For now, they will add some kind of log upon some alterations. Add all necessary parameters to this command:
+    psql -d snmpswitch < SnmpSwitch/snmpswitch-functions.sql
+
+  3. Go to "Probe" section and try probing each switch you need. After inserting all switches you want, you should see them on 'Network Status' link
+	* altough there isn't a interface to bulk insert, you can use scripts with the URL http://<site>/probe/switch/<ip>/<community>
+
+  * There is an admin interface (provided with django admin) to insert into the database VOIP and other things. You should create a superuser to log on. The URL is http://<site>/admin
   * you may use crontab or any other type of job manager to call the URL /probe/updatedb, as this will read the database and update all switches stored in there. 
   * you should protect the above link, or even the entire application, with a firewall or django auth (the last is not included).
   * Use crontab to run this SQL commands for database maintenance (1x per week):
