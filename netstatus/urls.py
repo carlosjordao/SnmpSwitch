@@ -28,7 +28,8 @@ urlpatterns = [
     path('report/', report_view),
     path('probe/', probe_view),
     path('probe/<str:service>', probe_service),
-    path('probe/<str:service>/<str:target>/<str:community>', probe_service),
+    path('probe/<str:service>/<str:target>', probe_service),
+    path('probe/<str:service>/<str:target>/<str:community>',  probe_service),
     path('probe/<str:service>/<str:target>/<str:community>/', probe_service),
     path('help', help_switches_list),
 ]
