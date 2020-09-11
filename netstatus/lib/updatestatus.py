@@ -126,9 +126,9 @@ def _switch_status(rows, dryrun):
             switch = Switches()
 
         print('##>>> Switch ID={}, serial_number={}, name={}, alias={}, mac={}, ip="{}", totaltime={}; vendor={},\n'
-              '\t\tclass={}, len(ports)={}'.format(
+              '\t\tclass={}, len(ports)={}, stp_root={}'.format(
               switch.id, switch.serial_number, switch.name, switch.alias, switch.mac, o.host, o.totaltime, o.vendor,
-              o.__class__.__name__, len(o.portas)), 
+              o.__class__.__name__, len(o.portas), o.stp), 
               file=sys.stderr, end='')
 
         print('##\t\t oid_poe_admin = {}'.format(o._oid_poe('1')[0]), file=sys.stderr, end='')
@@ -227,7 +227,10 @@ def _switch_status(rows, dryrun):
             oport = o.lldp[lport]['rport']
             sn = SwitchesNeighbors(mac1=switch.mac, port1=lport, mac2=omac, port2=oport)
             if not dryrun:
-                sn.save()
+                try:
+                    sn.save()
+                except IntegrityError as e:
+                    print("##>>>  Error saving neighbor :: (omac, oport) = ({}, {})".format(omac, oport), file=sys.stderr, end='')
 
         # macs can appear duplicated due several reasons, like several wifi ports or trunking ports.
         # so, we will create a dict to clean, letting the last entry overwrite the last value.
