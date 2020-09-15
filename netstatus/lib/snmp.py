@@ -19,14 +19,7 @@ class SNMP:
     def __init__(self, host, community='public', version=2):
         self.community = community
         self.version = self._map[version]
-<<<<<<< HEAD
-        # para IPv6, é preciso indicar o transporte explicitamente.
-        # há uma função no SNMP que tenta descobrir se o nome de host é FQDN, socket, etc
-        # e atribuir o devido transporte (udp, tcp, unix socket, etc)
-        # Para simplificar, o transporte é adicionado aqui para não bugar a camada de cima
-=======
         # IPv6 needs to be explicit, it won't guess based on IP
->>>>>>> new-branch-to-save
         self.host = 'udp6:[{}]'.format(host) if ':' in host else host
 
     def start(self):
@@ -48,12 +41,9 @@ class SNMP:
     # type_var must be one of several letters provided by snmpset -h
     def set(self, oids_var, value, type_var):
         return self.session.set(oids_var, value, type_var)
-<<<<<<< HEAD
-=======
 
     def __del__(self):
         self.session.close()
->>>>>>> new-branch-to-save
 
 
 class PseudoSnmp(SNMP):
@@ -217,5 +207,4 @@ class PseudoSnmp(SNMP):
 
     def __del__(self):
         pass
-
 
