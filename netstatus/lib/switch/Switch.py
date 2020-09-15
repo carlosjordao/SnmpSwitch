@@ -101,7 +101,7 @@ class Switch:
         self.model = ''
         self.physical = ''
         self.mac = ''
-        self.stp = 0
+        self.stp = -1 
         # _fab_var is added to the end of _oids_fab. Sometimes, we don't need to change all the OIDs,
         # just the last part where this switch model stores some of its data.
         self._fab_var = '2'
