@@ -82,7 +82,7 @@ pre {
 
     <div class="w3-third w3-margin-bottom">
         <div class="w3-border w3-panel w3-card-2">
-        <p>Update all switches in database. This should take a couple of minutes and you should wait it to finish.</p>
+        <p>Update all switches in database. This could take a couple of minutes on bigger datasets, just wait a bit.</p>
         <p>
             <button class='w3-button w3-green' onclick="javascript: call_response('updatedb', '/probe/updatedb');">Probe them!</button>
         </p>
@@ -91,7 +91,7 @@ pre {
 </div>
 
 <div class="w3-panel w3-pale-green w3-round-xxlarge response">
-    <p>Response</p>
+    <p>Response (may take a while)</p>
     <embed id="embed_response"/>
 </div>
 {% endblock %}
