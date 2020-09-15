@@ -114,6 +114,7 @@ def _switch_status(rows, dryrun):
     print("-- ### Total (switches, switch_list, diff) = ({}, {}, {}) => {}, core={}\nproblems = {}".
           format(len(rows), len(switches_list), diff, res, s_core, host_problems), file=sys.stderr, end='')
 
+    del othreads
     # todo: remove it in future versions after test.
     for o in switches_list.values():
         if o is None:
@@ -131,7 +132,7 @@ def _switch_status(rows, dryrun):
               o.__class__.__name__, len(o.portas), o.stp), 
               file=sys.stderr, end='')
 
-        print('##\t\t oid_poe_admin = {}'.format(o._oid_poe('1')[0]), file=sys.stderr, end='')
+        #print('##\t\t oid_poe_admin = {}'.format(o._oid_poe('1')[0]), file=sys.stderr, end='')
 
         # the switch should be unique in the database, based on mac / serial_number.
         # But it may be relocated and have name and IP changed. So, apply those changes to the database.
@@ -256,6 +257,7 @@ def _switch_status(rows, dryrun):
                            "mac.switch=switches_ports.switch and mac.port=switches_ports.port)")
     endtime = time.perf_counter() - start
     print("-- *** Execution total time: %5.01f s" % endtime, file=sys.stderr, end='')
+    del switches_list
     return
 
 
