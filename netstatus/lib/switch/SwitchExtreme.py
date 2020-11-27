@@ -15,7 +15,13 @@ class SwitchExtreme(Switch):
 
     def __init__(self, host, community='public', version=2):
         super().__init__(host, community, version)
+        self._fab_var = '3' # adjust for serial number
         self._mask = mask_bigendian
+        self._oids_poe = {
+            'poeadmin': '.1.3.6.1.2.1.105.1.1.1',
+            'poempower': '.1.3.6.1.4.1.1916.1.27.2.1.1.6',
+            'poesuffix': '.1',
+        }
 
 
 class SwitchExtremeX440(SwitchExtreme):
@@ -30,18 +36,12 @@ class SwitchExtremeX440(SwitchExtreme):
 
     def __init__(self, host, community='public', version=2):
         super().__init__(host, community, version)
+        self._fab_var = '3' # adjust for serial number
         self._oids_vlans = {
             'vlans':    '.1.3.6.1.4.1.1916.1.2.1.2.1.10',
             'tagged':   '.1.3.6.1.4.1.1916.1.2.6.1.1.1',
             'untagged': '.1.3.6.1.4.1.1916.1.2.6.1.1.2',
         }
         self._oids_poe['poempower'] = '.1.3.6.1.4.1.1916.1.27.2.1.1.6.1'
-
-    def _vlans_list(self):
-        return tuple(sorted([v[netsnmp.VALUE] for v in self.sessao.walk(self._oids_vlans['vlans'])]))
-
-    def _snmp_ports_stp(self, port):
-        port = self._map_bport_ifidx(int(port))
-        super()._snmp_ports_stp(port)
 
 
