@@ -4,6 +4,16 @@ import os
 import netsnmp
 
 
+class SnmpFactory:
+    """
+        Factory class for SNMP. It aims to be easier to change to other methods 
+    like PseudoSNMP or using Mock
+    """
+    @classmethod
+    def factory(cls, host='', community='public', version=2):
+        return SNMP(host, community, version)
+
+
 class SNMP:
     """
         Wrap class for snmp library.
@@ -26,11 +36,10 @@ class SNMP:
         self.host = 'udp6:[{}]'.format(host) if ':' in host else host
 
     def start(self):
-        try:
-            self.sessao = netsnmp.SNMPSession(self.host, self.community)
-        except:
-            print("Session err for {}".format(self.host))
-            raise
+        #try:
+        self.sessao = netsnmp.SNMPSession(self.host, self.community)
+        #except:
+        #    raise Exception("SNMP Session error for '{}'".format(self.host))
 
     def get(self, oids_var):
         return self.sessao.get(oids_var)
@@ -49,9 +58,12 @@ class SNMP:
 class PseudoSnmp(SNMP):
     """
     This class is used to provide offline data from switches as if it were online.
-    This class aims to 'simulate' a switch through reading files from snmpwalk -One -v2c command and providing an
-    answer as if it is online. This way, there won't need to test it with live switches at the beginning of
-    the development or after any changes.
+    This class aims to 'simulate' a switch through reading files from:
+         snmpwalk -One -v2c 
+    command and providing an answer as if it is online. This way, there won't 
+    need to test it with live switches at the beginning of the development or 
+    after any changes.
+
     As the objective is just provide some kind of interface to test the whole system, the number of features will
     be limited. The only bugs to be fixed is any that prevents the test occurrence or that gives a unexpected answer
     some point through get(), getnext() and walk() methods.
@@ -71,7 +83,7 @@ class PseudoSnmp(SNMP):
     def __init__(self, host, community='public', version=2):
         super().__init__(host, community, version)
         self.host = host
-        self.mib = {}
+        self.mib = {}  # the place the mib is stored after reading the snmpwalk file
         self.response = []  # one call at time, so one response.
         self._oid_ip_ext = '192.168'  # the switch IP starts with this. A hack to test integration with Models
         self.community = 'public'  # it doesn't matter
@@ -81,6 +93,12 @@ class PseudoSnmp(SNMP):
         return [(oids_var, 'NOSUCHOBJECT', '-1')]
 
     def _traverse(self, oid):
+        """
+            Go search through the mib stored as a chained list, as in C
+            Returns the pointer to the entry, or an empty dict as null pointer
+        if not found
+            Used for retrieving data (get / walk)
+        """
         if oid[0] == '.':
             oid = oid[1:]
         pointer = self.mib
@@ -108,16 +126,18 @@ class PseudoSnmp(SNMP):
             pointer['content'] = "%s:%.2d:%.2d:%.2d.%.2d" % \
                                  (c.days, c.seconds // 3600, (c.seconds // 60) % 60, c.seconds % 60, ticks % 100)
         else:
-            # some times cames with their enumeration type if walking without -Oe
             # .1.3.6.1.2.1.2.2.1.3.1 = INTEGER: ethernetCsmacd(6)
             if content and not content[0].isdigit():
                 content = content[content.rfind('(') + 1:-1]
             pointer['content'] = content
 
     def start(self):
+        """
+        Load the snmpwalk file
+        """
         filename = '{}/{}'.format(self.path, self.host)
         if not os.path.isfile(filename):
-            raise("Cannot locate test file for snmp: " + filename)
+            raise ValueError("Cannot locate the test file for snmp: " + filename)
         pointer = {}
         with open(filename) as f:
             content = ''
@@ -127,23 +147,27 @@ class PseudoSnmp(SNMP):
                     # netstatus-py lib brings all STRING with double quotes.
                     if pointer:
                         self._format_content(pointer)
-                    tmp = line.split(' ')
+                    tmp = line.split(' ') # splits 4 parts: oid, =, type, value  
                     try:
+                        # first value is OID
                         _idx = tmp[0][1:]    # remove the first dot
-                        if tmp[2] != '""':       # empty values...
-                            _type = tmp[2][:-1]  # remove the :
-                            _content = ' '.join(tmp[3:])  # anything else
-                        else:
+                        # lines without type are empty strings
+                        if tmp[2] == '""':
                             _type = 'STRING'
                             _content = '""'
+                        else:
+                            _type = tmp[2][:-1]             # remove the :
+                            _content = ' '.join(tmp[3:])    # content == value
+
+                        # now create the dictonary from the OID we got.
                         pointer = self.mib
                         for i in _idx.split('.'):
                             if i not in pointer:
                                 pointer[i] = {}
                             pointer = pointer[i]
-                        pointer['type'] = _type
+                        pointer['type']    = _type
                         pointer['content'] = _content
-                        pointer['oid'] = '.' + _idx
+                        pointer['oid']     = '.' + _idx
                     except IndexError as e:
                         print(line, e)
                 # multi line data
@@ -181,6 +205,11 @@ class PseudoSnmp(SNMP):
         return self.NOOBJECT(oids_var)
 
     def getnext(self, oids_var):
+        """
+            Get the next valid entry and value from some OID 
+            We don't need to traverse like walk, so the recursive function 
+        is different
+        """
         if type(oids_var) is str:
             oids_var = [oids_var]
         ret = []
@@ -188,19 +217,22 @@ class PseudoSnmp(SNMP):
             ret += self._getnext_str(i)
         return ret
 
-    def _walk_p(self, p):
-        if 'type' in p:
-            self.response += [(p['oid'], p['type'], p['content'])]
+    def _walk_p(self, p, response):
+        if 'type' in p: # it means we found an entry, let's save it
+            response += [(p['oid'], p['type'], p['content'])]
         else:
+            # not a leaf, so get the entries to the next level
+            # (deepest first)
             for i in p.keys():
-                self._walk_p(p[i])
+                self._walk_p(p[i], response)
         return
 
     def walk(self, oids_var):
-        self.response = []
+        response = []
         if type(oids_var) is str:
             oids_var = [oids_var]
         for l in oids_var:
+            # finding the root pointer to the walk
             p = self._traverse(l)
-            self._walk_p(p)
-        return self.response
+            self._walk_p(p, response)
+        return response
