@@ -1,4 +1,6 @@
+from .snmp import SnmpFactory
 from .switch.Switch import *
+from netsnmp._api import SNMPError
 
 
 class SwitchFactory:
@@ -27,19 +29,19 @@ class SwitchFactory:
         :param version: 2. Only change this if you switch only supports SNMP version 1
         :return: new instance of Switch class/subclass
         """
-        logging.debug("FACTORY: host: {}, comunidade: {}".format(host, community))
         try:
             # if host is str:
             if isinstance(host, str):
-                snmp_con = SNMP(host, community)
+                #snmp_con = SNMP(host, community)
+                snmp_con = SnmpFactory.factory(host, community)
                 snmp_con.start()
             else:
                 snmp_con = host
-            descr = snmp_con.get('.1.3.6.1.2.1.1.1.0')[0][2].replace('"', '')
+            descr = Switch.online_description(snmp_con)
+        except SNMPError as e:
+            raise
         except Exception as e:
-            logging.debug("FACTORY: Error with description: {}".format(e))
-            return None
+            raise Exception("FACTORY: Error with description: {}".format(e))
         class_found = SwitchFactory._type(descr, Switch)
-        logging.debug('FACTORY: found class: {}'.format(class_found.__name__))
         return class_found(host, community, version)
 
