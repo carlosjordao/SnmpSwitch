@@ -1,11 +1,16 @@
 import os
 import unittest
+
+from netsnmp._api import SNMPError
+from django.test.client import RequestFactory
+
 from netstatus.lib.switch import switchlib, Switch
 from netstatus.lib.switch.SwitchHH3C import SwitchHH3C
 from netstatus.settings import Settings
 from netstatus.lib.snmp import PseudoSnmp
 from netstatus.lib.switchfactory import SwitchFactory
 from netstatus.lib.switch.switchlib import *
+from netstatus.views.probe import *
 
 
 class TestSwitch(unittest.TestCase):
@@ -153,7 +158,8 @@ class TestSwitchLoad(unittest.TestCase):
         self.assertEqual(switch.vuntagged, {'1': (255, 255, 251, 15), '2': (0, 0, 0, 0),
                                             '20': (0, 0, 4, 0), '77': (0, 0, 0, 0)})
 
-        self.assertEqual(switch._mask.__name__, 'mask_bigendian')
+        #self.assertEqual(switch._mask.__name__, 'mask_bigendian')
+        self.assertEqual(switch._mask.__name__, 'mask_littleendian')
 
         check_ports_v1 = {
             1: ['1', '2', '1', '1', '2', '1', '0', '3'],
@@ -298,12 +304,14 @@ class TestSwitchLoad(unittest.TestCase):
         switch.get_mac_list()
         self.assertEqual(switch.macs[2], (10, '00:01:01:01:01:01', 2))
 
+
     @unittest.skipUnless(os.path.isfile(PseudoSnmp.path + '/' + '3Com-3CR17771-91.snmpwalk'),
                          'file 3Com-3CR17771-91.snmpwalk not found')
     def test_load_hpe_a3600(self):
         session = PseudoSnmp('3Com-3CR17771-91.snmpwalk')
         session.start()
         switch = SwitchFactory.factory(host=session)
+        self.assertNotEqual(switch, None)
         switch.get_geral()
         switch.get_vlans()
         self.assertEqual(switch.vlans, ('1', '10', '182', '2', '20', '202', '222', '242', '55', '77', '900', '998'))
@@ -371,17 +379,34 @@ class TestSwitchLoad(unittest.TestCase):
         session = PseudoSnmp('Extreme-X440.snmpwalk')
         session.start()
         switch = SwitchFactory.factory(host=session)
-        switch.get_geral()
-        switch.get_vlans()
-        self.assertEqual(switch.vlans, ('1', '2', '20', '4095', '55', '77'))
-        print(switch.vtagged, switch.vuntagged)
-        switch.get_ports()
-        for k in switch.portas.keys():
-            i = switch.portas[k]
-            print(k, i['tagged'], i['untagged'], i['pvid'])
-                   
+        switch.load()
 
- 
+        self.assertEqual(switch.mac, "00:04:96:99:ea:c5")
+        self.assertEqual(switch.vlans, ('1', '2', '20', '4095', '55', '77'))
+
+
+
+class TestSwitchInspect(unittest.TestCase):
+    """
+    Full run of all switch properties and data usually loaded and consumed by Models and Views.
+    """
+    def test_interface(self):
+        # when no file exists
+        rf = RequestFactory()
+        # check invalid files
+        self.assertRaises(ValueError, inspect_service, request=rf.get('/inspect/HP/public?mock=1'), target="HP", community="public")
+        # check invalid hosts
+        output = inspect_service(request=rf.get('/probe/HP/public'), target="HP", community="public")
+        self.assertEqual(True, output.content.startswith(b"ERROR"))
+
+    @unittest.skipUnless(os.path.isfile(PseudoSnmp.path + '/' + 'HPE-JG977A.snmpwalk'),
+                         'file HPE-JG977A.snmpwalk not found')
+    def test_inspect_hpe_jg977a(self):
+        rf = RequestFactory()
+        output = inspect_service(rf.get('/inspect/HPE-JG977A.snmpwalk/public?mock=1'), "HPE-JG977A.snmpwalk", "public")
+        self.assertEqual(False, output.content.startswith(b"ERROR"))
+        self.assertEqual(output.status_code, 200)
+
 
 if __name__ == '__main__':
     unittest.main()
