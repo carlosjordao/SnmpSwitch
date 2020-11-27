@@ -235,14 +235,9 @@ class PseudoSnmp(SNMP):
         for l in oids_var:
             # finding the root pointer to the walk
             p = self._traverse(l)
-<<<<<<< HEAD
             self._walk_p(p, response)
         return response
-=======
-            self._walk_p(p)
-        return self.response
 
     def __del__(self):
         pass
 
->>>>>>> 1eff3395a8c6532ef223770f20e8361845e8adfd
