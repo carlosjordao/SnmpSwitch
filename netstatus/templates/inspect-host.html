@@ -1,0 +1,164 @@
+{% extends 'header_menu.html' %}
+{% load static %}
+{% block customcss %}
+    <link rel="stylesheet" href="{% static 'css/report.css' %}">
+{% endblock %}
+{% block content %}
+<h2>Inspect host results</h2>
+<table>
+<thead>
+    </thead>
+<tbody>
+<tr>
+    <th>Status</th>
+    <td>{{ switch.status }}</td>
+</tr>
+<tr>
+    <th>NAME</th>
+    <td>{{ switch.name }}</td>
+</tr>
+<tr>
+    <th>MAC</th>
+    <td>{{ switch.mac }}</td>
+</tr>
+<tr>
+    <th>IP</th>
+    <td class=ip>{{ switch.ip }}</td>
+</tr>
+<tr>
+    <th>Vendor</th>
+    <td>{{ switch.vendor }}</td>
+</tr>
+<tr>
+    <th>Model</th>
+    <td>{{ switch.model }}</td>
+</tr>
+<tr>
+    <th>Software Version</th>
+    <td>{{ switch.soft_version }}</td>
+</tr>
+<tr>
+    <th>Serial Number</th>
+    <td>{{ switch.serial }}</td>
+</tr>
+<tr>
+    <th>Mask (VLAN)</th>
+    <td>{{ switch.mask__name }}</td>
+</tr>
+<tr>
+    <th>Class Name</th>
+    <td>{{ switch.class__name }}</td>
+</tr>
+<tr>
+    <th>VLANs</th>
+    <td>{{ switch.vlans|join:", " }}</td>
+</tr>
+<tr>
+    <th>UPLINK</th>
+    <td>{{ switch.uplink|join:", " }}</td>
+</tr>
+<tr>
+    <th>STP Root</th>
+    <td>{{ switch.stp }}</td>
+</tr>
+</tbody>
+</table>
+
+
+<h3>Neighbors found (LLDP):</h3>
+<table>
+<thead>
+    <th>Local port</th>
+    <th>local port description</th>
+    <th>Chassis subtype</th>
+    <th>Port subtype</th>
+    <th>Remote port</th>
+    <th>Remote description</th>
+    <th>Remote system name</th>
+    <th>Remote mac</th>
+</thead>
+<tbody>
+{% for p, d in switches.lldp %}
+<tr>
+    <td>{{ p }}</td>
+    <td>{{ d.locportdesc }}</td>
+    <td>{{ d.chassisubtype }}</td>
+    <td>{{ d.portsubtype }}</td>
+    <td>{{ d.rport }}</td>
+    <td>{{ d.remportdesc }}</td>
+    <td>{{ d.remsysname }}</td>
+    <td>{{ d.rmac }}</td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan=8>No neighbors found</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+
+
+<h3>MACs found in this switch:</h3>
+<table>
+<thead>
+    <th>Port</th>
+    <th>MAC</th>
+    <th>VLAN</th>
+</thead>
+<tbody>
+{% for p in switches.macs %}
+<tr>
+    <td>{{ p.0 }}</td>
+    <td>{{ p.1 }}</td>
+    <td>{{ p.2 }}</td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan=3>No MACs found</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+
+<h3>Port description:</h3>
+<table id=per_switch cellspacing="10" cellpadding="10">
+<thead>
+  <tr>
+    <th>Port</th>
+    <th>Name</th>
+    <th>Tagged VLANs</th>
+    <th>Untagged VLANs</th>
+    <th>PVID</th>
+    <th>STP Admin</th>
+    <th>STP State</th>
+    <th>POE Admin</th>
+    <th>POE Detection</th>
+    <th>POE Mili Power</th>
+    <th>Speed</th>
+    <th>Duplex</th>
+    <th>Admin state</th>
+    <th>Operational state</th>
+  </tr>
+</thead>
+<tbody>
+{% for port, v in switch.portas.items %}
+  <tr>
+    <td>{{ port }}</td>
+    <td>{{ v.nome }}</td>
+    <td>{{ v.tagged }}</td>
+    <td>{{ v.untagged }}</td>
+    <td>{{ v.pvid }}</td>
+    <td>{{ v.stp_admin }}</td>
+    <td>{{ v.stp_state }}</td>
+    <td>{{ v.poe_admin }}</td>
+    <td>{{ v.poe_detection }}</td>
+    <td>{{ v.poe_mpower }}</td>
+    <td>{{ v.speed }}</td>
+    <td>{{ v.duplex }}</td>
+    <td>{{ v.admin }}</td>
+    <td>{{ v.oper }}</td>
+  </tr>
+{% endfor %}
+</tbody>
+</table>
+{% endblock %}
