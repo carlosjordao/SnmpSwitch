@@ -16,7 +16,7 @@ Including another URLconf
 from django.urls import path
 
 from .views import switches_list, printers_list, voip_list, wifi_list, surv_list, help_switches_list
-from .views import macip_api, probe_view, probe_service, report_view
+from .views import macip_api, probe_view, probe_service, report_view, inspect_service
 
 urlpatterns = [
     path('', switches_list),
@@ -28,8 +28,11 @@ urlpatterns = [
     path('report/', report_view),
     path('probe/', probe_view),
     path('probe/<str:service>', probe_service),
-    path('probe/<str:service>/<str:target>/<str:community>', probe_service),
+    path('probe/<str:service>/<str:target>', probe_service),
+    path('probe/<str:service>/<str:target>/<str:community>',  probe_service),
     path('probe/<str:service>/<str:target>/<str:community>/', probe_service),
+    path('inspect/<str:target>/<str:community>', inspect_service),
+    path('inspect/<str:target>/<str:community>/', inspect_service),
     path('help', help_switches_list),
 ]
 
