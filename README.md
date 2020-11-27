@@ -1,5 +1,5 @@
 # ABOUT
-SnmpSwitch is a project aiming probing network devices, mainly switches but not exclusively, and gathering some data through SNMP connections.
+SnmpSwitch is a project aiming probing network devices, mainly switches but not exclusively, and gathering some data through SNMP connections with Python 3 and Django, storing the data on PostgreSQL.
 
 Its objective is *not* do what other monitoring softwares do, like Zabbix and Nagios, which already do that very well. Instead, it's something about device configuration state management that can obtained through SNMP.
 
@@ -16,9 +16,11 @@ Use this software at your own risk.
 ![image2](https://i.imgur.com/AlOLTJM.png)
 
 # INSTALL
+  * Uses: python 3, django and postgresql (tested on version 11)
   * Depends on: psycopg2, django, python 3, netsnmp-py
   * netsnmp-py is installed through pip:
     * install depends on packages (debian / ubuntu): libsnmp-dev, libzmq3-dev, libczmq-dev
+      * they should be installed manually before attempting to install netsnmp-py
 	pip install netstnmp-py
   * postgresql server
 
@@ -37,6 +39,9 @@ Use this software at your own risk.
   * you should protect the above link, or even the entire application, with a firewall or django auth (the last is not included).
   * Use crontab to run this SQL commands for database maintenance (1x per week):
 	 select * from mac_history(); delete from mac_log; REFRESH MATERIALIZED VIEW mat_listmachistory 
+
+  * Database connection string is here: SnmpSwitch/settings.py
+  * Execute this app with ./manage.py runserver
 
 
 # Evolution
