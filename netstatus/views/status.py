@@ -1,4 +1,5 @@
 from collections import namedtuple
+from datetime import timedelta
 
 from django.shortcuts import render
 from django.db.models import Subquery, OuterRef
@@ -264,6 +265,14 @@ def switches_list(request):
         # a relation of port / mac is necessary to identify which resource is on which port of the switch.
         # At the same time, we'll need the ip / mac association for information on each port, so we'll create two
         # dictionaries from one loop.
+        # -- formatting time variables
+        c = timedelta(seconds=(switch.uptime / 100))
+        _uptime = "%s days, %.2d:%.2d:%.2d" % (
+                   c.days, c.seconds // 3600,
+                   (c.seconds // 60) % 60,
+                   c.seconds % 60)
+        switch.info_ = 'Uptime: ' + _uptime +\
+                       '\nLast update: ' + str(switch.last_update)
         macs = switch.mac_switch.order_by('port')
         macs_hash = {}
         mac_ip = {}
@@ -285,7 +294,6 @@ def switches_list(request):
         switch_ports = switch.ports.all().order_by('port')
         ports_rendered = []
         for switch_port in switch_ports:
-            # TODO: think if there is a better approach to this.
             _lldp = _format_lldp(switch_port, lldps_mac[switch_port.port]) if switch_port.port in lldps_mac else None
             _stp = _format_stp(switch_port, switch)
             _port = _format_port(switch_port, mac_ip)

@@ -153,3 +153,10 @@ td {
   margin-right:2px;
   margin-top:2px;
 }
+.switch_info {
+  border:1px solid yellow;
+  margin: 2px;
+  padding: 2px;
+  color: yellow;
+  font-family: Times New Roman;
+}

@@ -1,7 +1,4 @@
 djangorestframework
-django
+django==2.2.4
 psycopg2
 netsnmp-py
-#libsnmp-dev
-#libzmq3-dev
-#libczmq-dev

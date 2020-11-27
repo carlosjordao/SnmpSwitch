@@ -23,8 +23,8 @@ class Ipv6(models.Model):
 
 
 class Mac(models.Model):
-    #id = models.IntegerField(primary_key=True)
-    #id = models.AutoField(primary_key=True, auto_created=True)
+    # id = models.IntegerField(primary_key=True)
+    # id = models.AutoField(primary_key=True, auto_created=True)
     switch = models.ForeignKey('Switches', models.DO_NOTHING, db_column='switch', blank=False, null=False, default=0,
                                related_name='mac_switch')
     mac = models.CharField(max_length=17, default='', blank=False, null=False)
@@ -69,6 +69,8 @@ class Switches(models.Model):
     stp_root = models.SmallIntegerField(blank=True, null=True)
     community_ro = models.CharField(max_length=20)
     community_rw = models.CharField(max_length=20)
+    uptime = models.DurationField(default=0)
+    last_update = models.DateTimeField(auto_now=True)
 
     class Meta:
         managed = True

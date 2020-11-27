@@ -107,7 +107,8 @@ class Switch:
         self.model = ''
         self.physical = ''
         self.mac = ''
-        self.stp = -1 
+        self.stp = -1
+        self.uptime = 0
         # _fab_var is added to the end of _oids_fab. Sometimes, we don't need to change all the OIDs,
         # just the last part where this switch model stores some of its data.
         self._fab_var = '2'
@@ -118,7 +119,6 @@ class Switch:
         if isinstance(host, str):
             self.host = host
             self.comunidade = community
-            #self.sessao = SNMP(host, community, version)
             self.sessao = SnmpFactory.factory(host, community, version)
             self.sessao.start()
 
@@ -170,7 +170,6 @@ class Switch:
     def get_geral(self):
         """
         Get basic info of this snmp equipment and uses the name in the OID dictionary as object attribute.
-        
         """
         tmp = {}
         for k, v in self._oids_fab.items():
@@ -184,6 +183,13 @@ class Switch:
             setattr(self, x, y)
         self.mac = format_mac(self.mac)
         self.stp = int(self.stp)
+        # need to fix uptime, better leave to microseconds
+        time_values = self.uptime.split(':')
+        uptime = int(time_values[0]) * (24 * 3600 * 1000) + \
+                 int(time_values[1]) * 3600 * 1000 + \
+                 int(time_values[2]) * 60 * 1000 + \
+                 float(time_values[3]) * 1000
+        self.uptime = uptime
 
     def load(self):
         """
@@ -192,22 +198,15 @@ class Switch:
         """
         self.get_geral()
         self.get_vlans()
-        #logging.debug('-- self._mask: ' + str(self._mask.__name__))
-        #logging.debug('-- self.vtagged: ' + str(self.vtagged))
-        #logging.debug('-- self.vuntagged: ' + str(self.vuntagged))
-
         self.get_ports()
-        #logging.debug(('-- ports: ', self.portas))
-
         self.get_lldp_neighbors()
-        #logging.debug(('-- after get_lldP_neighbor(): ', self.lldp))
-        #logging.debug(('   +---> uplinks: ', self.uplink))
-
         self.get_mac_list()
-        #logging.debug(('-- mac list: ', *self.macs))
 
     def _vlans_list(self):
-        """ Safe method for several types. However, for some models we may change that (get values from netsnmp.VALUE) """
+        """
+        Safe method for several types. However, for some models we may change that
+        (get values from netsnmp.VALUE)
+        """
         return {v[netsnmp.OID].split('.')[-1]: v[netsnmp.VALUE] for v in self.sessao.walk(self._oids_vlans['vlans'])}
 
     def get_vlans(self):

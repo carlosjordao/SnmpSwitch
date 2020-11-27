@@ -8,7 +8,9 @@
   {% for switch in switches %}
   <tr>
     <td style='text-align:justify;' id='{{switch.name}}'>
-        <b>{{switch.name}}</b><br>
+        <b>{{switch.name}}</b>
+        <span class="switch_info" title="{{switch.info_}}">i</span>
+        <br>
         <small>
             {{switch.alias}}<br>
             {{switch.mac}}<br>

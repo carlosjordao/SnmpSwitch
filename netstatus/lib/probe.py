@@ -155,7 +155,8 @@ def _switch_status(rows, dryrun):
         switch.soft_version  = o.soft_version
         switch.stp_root      = o.stp
         switch.community_ro  = o.comunidade
-        # logging.debug('##>>> switchs: ({}, {}, {}, model={}, serial={}, vendor={}, ver={}, stp={})'.format(o.name, o.mac, o.host, o.model, o.serial, o.vendor, o.soft_version, o.stp))
+        switch.uptime        = o.uptime
+
         try:
             switch.alias = Settings.SWITCH_ALIAS(o.name) if Settings.SWITCH_ALIAS else o.name[:6]
         except TypeError:

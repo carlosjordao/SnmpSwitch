@@ -149,7 +149,7 @@ class TestSwitchLoad(unittest.TestCase):
         self.assertEqual(switch.descr, 'HPE Comware Platform Software, Software Version 7.1.070, Release '
                                        '3208P15\nHPE 5130 24G PoE+ 4SFP+ EI BR Switch\nCopyright (c) 2010-2018 '
                                        'Hewlett Packard Enterprise Development LP')
-        # self.assertEqual(switch.name, 'SWD-XXXXX-59')
+        self.assertEqual(switch.uptime, 6543159650)
 
         switch.get_vlans()
         self.assertEqual(switch.vlans, ('1', '2', '20', '77'))
