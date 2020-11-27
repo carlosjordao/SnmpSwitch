@@ -5,6 +5,7 @@ import sys
 import netsnmp
 
 from netstatus.lib.snmp import SNMP
+from netstatus.lib.snmp import SnmpFactory
 from netstatus.settings import Settings
 from netstatus.lib.switch import switchlib
 from .switchlib import *
@@ -68,6 +69,10 @@ class Switch:
     def is_compatible(cls, descr):
         return True
 
+    @classmethod
+    def online_description(cls, session):
+        return session.get(cls._oids_geral['descr'])[0][2].replace('"', '')
+
     def __init__(self, host, community='public', version=2):
         # default for 3Com / HP (HPN)
         # self._mask = mask_bigendian
@@ -81,6 +86,7 @@ class Switch:
             'poempower': '.1.3.6.1.4.1.43.45.1.10.2.14.1.1.3.1',
             'poesuffix': '.1',
         }
+        self._oid_ipAdEntAddr = '.1.3.6.1.2.1.4.20.1.1'
         self._mask = mask_littleendian
         self.comunidadew = 'private'
         self.ip = ''  # future: get it from interface vlan
@@ -101,7 +107,7 @@ class Switch:
         self.model = ''
         self.physical = ''
         self.mac = ''
-        self.stp = 0
+        self.stp = -1 
         # _fab_var is added to the end of _oids_fab. Sometimes, we don't need to change all the OIDs,
         # just the last part where this switch model stores some of its data.
         self._fab_var = '2'
@@ -112,7 +118,8 @@ class Switch:
         if isinstance(host, str):
             self.host = host
             self.comunidade = community
-            self.sessao = SNMP(host, community, version)
+            #self.sessao = SNMP(host, community, version)
+            self.sessao = SnmpFactory.factory(host, community, version)
             self.sessao.start()
 
         if isinstance(host, SNMP):
@@ -163,6 +170,7 @@ class Switch:
     def get_geral(self):
         """
         Get basic info of this snmp equipment and uses the name in the OID dictionary as object attribute.
+        
         """
         tmp = {}
         for k, v in self._oids_fab.items():
@@ -184,22 +192,22 @@ class Switch:
         """
         self.get_geral()
         self.get_vlans()
-        logging.debug('-- self.vtagged: ' + str(self.vtagged))
-        logging.debug('-- self.vuntagged: ' + str(self.vuntagged))
+        #logging.debug('-- self._mask: ' + str(self._mask.__name__))
+        #logging.debug('-- self.vtagged: ' + str(self.vtagged))
+        #logging.debug('-- self.vuntagged: ' + str(self.vuntagged))
 
         self.get_ports()
-        logging.debug(('-- ports: ', self.portas))
+        #logging.debug(('-- ports: ', self.portas))
 
         self.get_lldp_neighbors()
-        logging.debug(('-- after get_lldP_neighbor(): ', self.lldp))
-        logging.debug(('   +---> uplinks: ', self.uplink))
+        #logging.debug(('-- after get_lldP_neighbor(): ', self.lldp))
+        #logging.debug(('   +---> uplinks: ', self.uplink))
 
         self.get_mac_list()
-        logging.debug(('-- mac list: ', *self.macs))
+        #logging.debug(('-- mac list: ', *self.macs))
 
     def _vlans_list(self):
         """ Safe method for several types. However, for some models we may change that (get values from netsnmp.VALUE) """
-        # return tuple(sorted([v[netsnmp.OID].split('.')[-1] for v in self.sessao.walk(self._oids_vlans['vlans'])]))
         return {v[netsnmp.OID].split('.')[-1]: v[netsnmp.VALUE] for v in self.sessao.walk(self._oids_vlans['vlans'])}
 
     def get_vlans(self):
@@ -214,8 +222,8 @@ class Switch:
         """
         self._vlans_index = self._vlans_list()
         self.vlans = tuple(sorted(self._vlans_index.values()))
-        logging.debug(('-- vlans_index: ', self._vlans_index))
-        logging.debug(('-- vlans: ', self.vlans))
+        #logging.debug(('-- vlans_index: ', self._vlans_index))
+        #logging.debug(('-- vlans: ', self.vlans))
         self.vtagged = {}
         self.vuntagged = {}
         """
@@ -283,7 +291,7 @@ class Switch:
         """ all OIDs below are basePort index """
         port = str(self._map_bport_ifidx(int(port)))
         oidlist = [v + port for v in self._oids_stp]
-        logging.debug(('-- STP OIDs :: ', oidlist))
+        #logging.debug(('-- STP OIDs :: ', oidlist))
         return self.sessao.get(oidlist)
 
     # Data: INTEGER {vLANTrunk(1), access(2), hybrid(3), fabric(4)}
@@ -314,14 +322,16 @@ class Switch:
 
     def _snmp_ports_poe(self, port):
         """
-        Get poe_admin, poe_status, poe_class, poe_mpower.
-        Splitted into 2 methods: the first creates the OIDs, which changes among switches.
-        The second gets them. Some (D-LINK) may overwrite this to change the returned value or something else.
+            Get poe_admin, poe_status, poe_class, poe_mpower.
+            Splitted into 2 methods: the first creates the OIDs, which changes 
+        among switches.
+            The second gets the power consumed (mW). Some (D-LINK) may overwrite 
+        this to change the returned value or something else.
         :param port: switch port, as string
         :return:
         """
         oidlist = self._oid_poe(port) + self._oid_mpoe(port)
-        logging.debug(('-- POE OIDs: ', oidlist, self._oids_poe))
+        #logging.debug(('-- POE OIDs: ', oidlist, self._oids_poe, self.sessao.get(oidlist)))
         return self.sessao.get(oidlist)
 
     # Testa se a port é uma Interface VLAN
@@ -399,7 +409,8 @@ class Switch:
         ifinoct  = ifhcinoct if ifinoct < ifhcinoct else ifinoct
         ifoutoct = ifhcoutoct if ifoutoct < ifhcoutoct else ifoutoct
         # Specific things for each vendor / model. Uses separated methods for easier overload.
-        result = self._snmp_ports_stp(i)  # uses dot1dBasePort
+        result = []
+        result += self._snmp_ports_stp(i)  # uses dot1dBasePort
         result += self._snmp_ports_poe(i)
         result += self._snmp_ports_vtype(i)
         values = snmp_values(result, filter_=True)
@@ -426,9 +437,9 @@ class Switch:
             if len(vtag) > 4090:  # probably trunking port with 'permit vlan all' and all vlans created.
                 vtag = [4095, ]
 
-        logging.debug('-- port {} ({}), vtag = "{}", vuntag = "{}", pvid = {}, stp_admin = {}'
-                      '\n======================================='.format(
-                      str(port), str(ifdesc), vtag, vuntag, stp_pvid, stp_admin))
+        #logging.debug('-- port {} ({}), vtag = "{}", vuntag = "{}", pvid = {}, stp_admin = {}'
+        #              '\n======================================='.format(
+        #              str(port), str(ifdesc), vtag, vuntag, stp_pvid, stp_admin))
         return {
             'speed': ifspeedn,
             'duplex': int(ifduplex),
