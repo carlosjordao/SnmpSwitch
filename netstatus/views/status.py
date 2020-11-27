@@ -256,7 +256,7 @@ def switches_list(request):
     # making the switch core (stp_root == 0) as the first to be shown. Should be nice to add a custom ordering as
     # each person configures and names switches differently.
     switches = Switches.objects.filter(status='active').extra(
-        select={'s1': 'stp_root=0', 's2': 'substring(name from -3)', 's3': 'substring(name from 1 for 3)'},
+        select={'s1': 'stp_root=0', 's2': 'right(name, 2)', 's3': 'substring(name from 1 for 3)'},
         order_by=['-s1', 's2', 's3']
     )
     for switch in switches:

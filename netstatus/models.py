@@ -23,7 +23,8 @@ class Ipv6(models.Model):
 
 
 class Mac(models.Model):
-    id = models.IntegerField(primary_key=True)
+    #id = models.IntegerField(primary_key=True)
+    #id = models.AutoField(primary_key=True, auto_created=True)
     switch = models.ForeignKey('Switches', models.DO_NOTHING, db_column='switch', blank=False, null=False, default=0,
                                related_name='mac_switch')
     mac = models.CharField(max_length=17, default='', blank=False, null=False)
@@ -108,7 +109,7 @@ class SwitchesPorts(models.Model):
 
 
 class SwitchesNeighbors(models.Model):
-    id = models.IntegerField(primary_key=True)
+    #id = models.AutoField(primary_key=True)
     mac1 = models.CharField(max_length=17)
     port1 = models.SmallIntegerField()
     mac2 = models.CharField(max_length=17)

@@ -14,3 +14,4 @@ class Settings:
     SWITCH_ALIAS = lambda name: name[:3] + '-' + name[-2:] \
         if 'SWITCH_ALIAS' not in os.environ else eval(os.environ['SWITCH_ALIAS'])
     DEBUG = False
+    #DEBUG = True
