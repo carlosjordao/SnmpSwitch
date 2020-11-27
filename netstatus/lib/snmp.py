@@ -2,6 +2,7 @@ from datetime import timedelta
 import os
 
 import netsnmp
+from netsnmp._api import SNMPError
 
 
 class SnmpFactory:
@@ -35,9 +36,8 @@ class SNMP:
     def start(self):
         try:
             self.session = netsnmp.SNMPSession(self.host, self.community)
-        except:
-            print("Session err for {}".format(self.host))
-            raise
+        except SNMPError as e:
+            raise e
 
     def get(self, oids_var):
         return self.session.get(oids_var)
@@ -53,7 +53,8 @@ class SNMP:
         return self.session.set(oids_var, value, type_var)
 
     def __del__(self):
-        self.session.close()
+        if self.session:
+            self.session.close()
 
 
 class PseudoSnmp(SNMP):
