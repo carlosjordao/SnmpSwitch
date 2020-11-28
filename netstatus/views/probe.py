@@ -8,6 +8,7 @@ from netstatus.lib.neighbors import probe_switch_neighbors
 
 from netstatus.lib.snmp import PseudoSnmp
 
+
 def probe_view(request):
     return render(request, 'probe.html')
 
@@ -18,16 +19,14 @@ def probe_service(request, service, target='', community='public'):
 
     if service == 'printer':
         response = probe_snmp_printer(target, community)
-
-    elif service == 'switch':
-        response = probe_update_host(target, community)
-
     elif service == 'neighbors':
         response = probe_switch_neighbors(target, community)
-
+    elif service == 'switch':
+        response = probe_update_host(target, community)
+        return render(request, 'probe_result.html', {'general': response.all, 'hosts': response.hosts})
     elif service == 'updatedb':
         response = probe_update_db()
-
+        return render(request, 'probe_result.html', {'general': response.all, 'hosts': response.hosts})
     else:
         return HttpResponse('invalid service: {}'.format(service))
 
