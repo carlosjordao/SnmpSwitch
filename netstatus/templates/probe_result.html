@@ -1,0 +1,28 @@
+{% block content %}
+<h3>General messages</h3>
+{% for m in general %}
+<p>{{ m }}</p>
+{% endfor %}
+
+<h3>Messages per host</h3>
+<table>
+    <tr>
+        <th>Host</th>
+        <th>Message</th>
+    </tr>
+    {% for h, messages in hosts.items %}
+    <tr>
+        <td>
+            <b>{{ h }}</b>
+        </td>
+        <td>
+        {% spaceless %}
+        {% for m in messages %}
+            <p>{{ m }}</p>
+        {% endfor %}
+        {% endspaceless %}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}
