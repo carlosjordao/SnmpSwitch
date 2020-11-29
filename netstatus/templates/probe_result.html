@@ -1,8 +1,10 @@
 {% block content %}
 <h3>General messages</h3>
+<ul>
 {% for m in general %}
-<p>{{ m }}</p>
+<li>{{ m }}</li>
 {% endfor %}
+</ul>
 
 <h3>Messages per host</h3>
 <table>
@@ -15,12 +17,11 @@
         <td>
             <b>{{ h }}</b>
         </td>
-        <td>
-        {% spaceless %}
+        <td><ul>
         {% for m in messages %}
-            <p>{{ m }}</p>
+            <li>{{ m }}</li>
         {% endfor %}
-        {% endspaceless %}
+          </ul>
         </td>
     </tr>
     {% endfor %}
