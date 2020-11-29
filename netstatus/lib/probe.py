@@ -107,7 +107,7 @@ def _switch_status(rows, dryrun):
     :return: empty string. The main information is yielded for the StreamHttpResponse()
     """
     response = ProbeResponse(rows)
-    response.dryrun =  dryrun
+    response.dryrun = dryrun
     global IP_CORE
     global switches_list
     switches_list = {}
@@ -125,19 +125,18 @@ def _switch_status(rows, dryrun):
         for t in othreads:
             t.join()
     except Exception as e:
-        response.add_all('%% Error After threads: {}'.format(e))
+        response.add_all('* Error After threads: {}'.format(e))
 
     s_core = switches_list[IP_CORE] if IP_CORE and IP_CORE in switches_list else None
     diff = (len(rows) - len(switches_list))
-    res = 'ok' if diff == 0 else 'problems'
-    host_problems = [i[0] for i in rows if i[0] not in switches_list] if diff != 0 else []
+    # host_problems = [i[0] for i in rows if i[0] not in switches_list] if diff != 0 else []
 
-    response.add_all("-- ### Total (switches, switch_list, diff) = ({}, {}, {}) => {}, core={}\nproblems = {}".
-                     format(len(rows), len(switches_list), diff, res, s_core, host_problems))
+    response.add_all("Total of switches {}; Total of Switches Ok: {}; failures: {}, core={}".
+                     format(len(rows), len(switches_list), diff, s_core))
     del othreads
     for o in switches_list.values():
         if o is None:
-            response.add_all('-- switch is none. skipping...')
+            response.add_all('-- Switch instance is NoneType. skipping.')
             continue
         # some error before the object could exist. Maybe refactor this later
         if dict is type(o):
@@ -153,8 +152,8 @@ def _switch_status(rows, dryrun):
 
         response.add_host_msg(
             o.host,
-            '##>>> Switch ID={}, serial_number={}, name={}, alias={}, mac={}, ip="{}", vendor={},\n'
-            '\t\tclass={}, len(ports)={}, stp_root={}'.format(
+            'Basic data from switch: ID={}, serial_number={}, name={}, alias={}, mac={}, ip="{}", vendor={}, '
+            'class={}, len(ports)={}, stp_root={}'.format(
              switch.id, switch.serial_number, switch.name, switch.alias, switch.mac, o.host, o.vendor,
              o.__class__.__name__, len(o.portas), o.stp))
         # the switch should be unique in the database, based on mac / serial_number.
@@ -184,13 +183,12 @@ def _switch_status(rows, dryrun):
                                "WHERE status='active' AND ip='{0}' and serial_number <> '{1}'".\
                                format(switch.ip, switch.serial_number))
             except DataError as e:
-                response.add_host_msg(o.host, "##>>> Error saving switch {} ({}): {}".format(switch.id, switch.name, e))
+                response.add_host_msg(o.host, "* Error saving switch {} ({}): {}".format(switch.id, switch.name, e))
                 response.add_host_msg(o.host, connection.queries[-1])
                 continue
             except IntegrityError as e:
-                import pprint
                 response.add_host_msg(o.host,
-                                      "##>>> Switch already is present in db but not found when you looked for it.\n"
+                                      "Switch already is present in database but not found when you looked for it.\n"
                                       "{}\n id={}, mac={}, mac2={}".
                                       format(e,  switch.id, switch.mac, o.mac))
                 response.add_host_msg(o.host, connection.queries[-3:])
@@ -199,18 +197,11 @@ def _switch_status(rows, dryrun):
         sp = o.portas[1]
         response.add_host_msg(
             o.host,
-            '##\t\t{}, {}, {}, admin={}, oper={}, stp_admin={}, poe_admin={}; poe_mpower={}, pvid={}, '
-            'vtagged={}, vuntagged={}'.format(
+            'Switch port "{}" for checking:  name={}, speed={}, admin={}, oper={}, stp_admin={}, '
+            'poe_admin={}; poe_mpower={}, pvid={}, vtagged={}, vuntagged={}'.format(
              1, sp['nome'][:30], sp['speed'], sp['admin'], sp['oper'], sp['stp_admin'], sp['poe_admin'],
              sp['poe_mpower'], sp['pvid'], ', '.join(sp['tagged']), ', '.join(sp['untagged']))
             )
-
-        response.add_host_msg(o.host,
-                              '##\t\t{}, {}, {}, admin={}, oper={}, stp_admin={}, poe_admin={}; poe_mpower={}, pvid={}, '
-                              'vtagged={}, vuntagged={}'.format(
-                               1, sp['nome'][:30], sp['speed'], sp['admin'], sp['oper'], sp['stp_admin'],
-                               sp['poe_admin']))
-
         # this check is just to avoid deleting ports associate to this switch. Not a big deal, though, but
         # our database should store significant changes onto switches_ports and feed the *_log tables with previous
         # data. Avoiding deleting avoids excessive insert into other table, not for sake of performance, but to maintain
@@ -249,7 +240,7 @@ def _switch_status(rows, dryrun):
                     sp.save()
                 except IntegrityError as e:
                     response.add_host_msg(o.host,
-                                          "##>>>  Error saving port {}: {}".format(sp.port, e))
+                                          "* Error saving port {}: {}".format(sp.port, e))
 
         SwitchesNeighbors.objects.filter(mac1=switch.mac).delete()
         for lport in o.uplink:
@@ -262,7 +253,7 @@ def _switch_status(rows, dryrun):
                     sn.save()
                 except IntegrityError as e:
                     response.add_host_msg(o.host,
-                                          "##>>>  Error saving neighbor :: (omac, oport) = ({}, {})".format(omac, oport))
+                                          "* Error saving neighbor :: (omac, oport) = ({}, {})".format(omac, oport))
 
         # macs can appear duplicated due several reasons, like several wifi ports or trunking ports.
         # so, we will create a dict to clean, letting the last entry overwrite the last value.
@@ -304,47 +295,47 @@ def _load_host(host, community, switchid, response):
     global switches_list
     global IP_CORE
     global lock
+    start1 = time.perf_counter()
     try:
         obj = SwitchFactory().factory(host, community)
     except Exception as e:
-        obj = {host: "::: error with switch: " + str(e)}
+        response.add_host_msg(host, "Error with switch: " + str(e))
+        """
         if not lock.acquire(timeout=30):
-            logging.debug("-- %% host {} was locked out and couldn't be inserted back into list. ".format(host))
+            response.("% host {} was locked out and couldn't be inserted back into list. ".format(host))
             lock.release()
             return 3
         switches_list[host] = obj
         lock.release()
+        """
         return 4
 
     if not obj:
         return 1
     obj.id = switchid
-    start1 = time.perf_counter()
     try:
         obj.load()
-        obj.tmp_msg = []
     except Exception as e:
         import traceback
-        obj.tmp_msg.append("-- %% _load_host(): host {} got exception in load(): {}\n----- Trace: {}".
-                           format(host, e, traceback.print_exc()))
+        response.add_host_msg(host, "Got exception in loading data: {}\n----- Trace: {}".
+                              format(e, traceback.print_exc()))
         return 2
     try:
         # if stp_root (main / sole switch), then try to get the IP-MAC relation
         if obj.stp == 0:
             obj.get_ip_mac()
             IP_CORE = host
-            obj.tmp_msg.append('-- %% found core: {}'.format(host))
-        obj.tmp_msg.append("%3.01f s" % (time.perf_counter() - start1))
+            response.add_host_msg(host, 'Core / sole switch')
+        response.add_host_msg(host, "Load time: %3.01f s" % (time.perf_counter() - start1))
     except Exception as e:
-        obj.tmp_msg.append(host,
-                           "-- %% _load_host: host {} error getting assessing some data: {}".format(host, e))
+        response.add_host_msg(host,
+                              "Error when processing IP info: {}".format(host, e))
         return 2
 
     if not lock.acquire(timeout=30):
-        logging.debug("-- %% host {} was locked out and couldn't be inserted back into list. ".format(host))
+        response.add_all("host {} was locked out and couldn't be inserted back into list. ".format(host))
         lock.release()
         return 3
     switches_list[host] = obj
     lock.release()
     return 0
-
