@@ -1,5 +1,6 @@
 import os
 import unittest
+from unittest import mock
 
 from netsnmp._api import SNMPError
 from django.test.client import RequestFactory
@@ -7,7 +8,7 @@ from django.test.client import RequestFactory
 from netstatus.lib.switch import switchlib, Switch
 from netstatus.lib.switch.SwitchHH3C import SwitchHH3C
 from netstatus.settings import Settings
-from netstatus.lib.snmp import PseudoSnmp
+from netstatus.lib.snmp import PseudoSnmp, SnmpFactory
 from netstatus.lib.switchfactory import SwitchFactory
 from netstatus.lib.switch.switchlib import *
 from netstatus.views.probe import *
@@ -385,8 +386,11 @@ class TestSwitchLoad(unittest.TestCase):
         self.assertEqual(switch.vlans, ('1', '2', '20', '4095', '55', '77'))
 
 
+def override_snmp_factory(host='', community='public', version=2):
+    return PseudoSnmp(host + '.snmpwalk', community, version)
 
-class TestSwitchInspect(unittest.TestCase):
+
+class TestSwitchInterface(unittest.TestCase):
     """
     Full run of all switch properties and data usually loaded and consumed by Models and Views.
     """
@@ -407,6 +411,16 @@ class TestSwitchInspect(unittest.TestCase):
         self.assertEqual(False, output.content.startswith(b"ERROR"))
         self.assertEqual(output.status_code, 200)
 
+    @unittest.skip
+    @mock.patch('netstatus.lib.snmp.SnmpFactory', 'factory', override_snmp_factory)
+    def test_updatedb(self):
+        rf = RequestFactory()
+
+    def test_switch(self):
+        session = PseudoSnmp('192.168.1.110.snmpwalk')
+        session.start()
+        switch = SwitchFactory.factory(host=session)
+        switch.load()
 
 if __name__ == '__main__':
     unittest.main()
