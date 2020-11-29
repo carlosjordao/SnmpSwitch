@@ -17,20 +17,30 @@ def probe_service(request, service, target='', community='public'):
     if request.method == 'POST':
         return HttpResponse('invalid request.')
 
+    dryrun = mock = False
+    if request.GET.get('mock', '') != '':
+        mock = True
+    if request.GET.get('dryrun', '') != '':
+        dryrun = True
+
     if service == 'printer':
         response = probe_snmp_printer(target, community)
+
     elif service == 'neighbors':
         response = probe_switch_neighbors(target, community)
+
     elif service == 'switch':
-        response = probe_update_host(target, community)
+        response = probe_update_host(target, community, dryrun)
         return render(request, 'probe_result.html', {'general': response.all, 'hosts': response.hosts})
+
     elif service == 'updatedb':
-        response = probe_update_db()
+        response = probe_update_db(dryrun)
         return render(request, 'probe_result.html', {'general': response.all, 'hosts': response.hosts})
+
     else:
         return HttpResponse('invalid service: {}'.format(service))
 
-    response = '\n'.join(['<pre>', *response, '</pre>'])
+    response = "\n".join(['<pre>', *response, '</pre>'])
     return HttpResponse(response)
 
 
