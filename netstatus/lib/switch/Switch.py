@@ -549,7 +549,7 @@ class Switch:
         :return: [{lport: {rmac, rporta, locportdesc, remsysname, remportdesc}},]
         """
         self.lldp = {}
-        logging.debug("--> : [{} / {}] LLDP: self.lldp {}.".format(self.name, self.host, str(self.lldp)))
+        #logging.debug("--> : [{} / {}] LLDP: self.lldp {}.".format(self.name, self.host, str(self.lldp)))
         neighbors = self.sessao.walk(self._oids_lldp_mac)
         for (oid, tipo, _rmac) in neighbors:
             oid = oid.replace(self._oids_lldp_mac, '').split('.')
@@ -591,11 +591,10 @@ class Switch:
                 rmac = format_mac(_rmac)
 
             elif res['chassissubtype'] == '5':
-                logging.debug('--            +++----->  _rmac = "{}"'.format(_rmac))
                 # VOIPs Yealink let the field _oids_lldp_mac empty.
                 # They set chassissubtype as networkAddress, but don't put any other type of information.
                 # However: rport e portsubtype has the MAC data of the remote port.
-                if _rmac == '""':
+                if _rmac == '""' or _rmac == '':
                     logging.debug("--> NOTE: [{} / {}] LLDP: lport {}: rmac is null.".
                                   format(self.name, self.host, lport))
                     continue
