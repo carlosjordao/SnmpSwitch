@@ -39,8 +39,6 @@ Use this software at your own risk.
 # USE
   1. use: python3 manage.py migrate
 	* this will connect and create the database tables for you. You only need to create beforehand the database.
-  2. after that, add some extra tables, functions and rules to postgres. For now, they will add some kind of log upon some alterations. Add all necessary parameters to this command:
-    psql -d snmpswitch < SnmpSwitch/snmpswitch-functions.sql
 
   3. Go to "Probe" section and try probing each switch you need. After inserting all switches you want, you should see them on 'Network Status' link
 	* altough there isn't a interface to bulk insert, you can use scripts with the URL http://<site>/probe/switch/<ip>/<community>
