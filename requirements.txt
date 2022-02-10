@@ -1,4 +1,4 @@
 djangorestframework
-django==2.2.24
+django==2.2.27
 psycopg2
 netsnmp-py
